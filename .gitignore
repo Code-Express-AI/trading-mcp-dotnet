@@ -7,6 +7,8 @@ secrets.json
 # .NET build output
 bin/
 obj/
+TestResults/
+*.cobertura.xml
 
 # IDE
 .DS_Store
@@ -14,4 +16,6 @@ obj/
 .vscode/*
 !.vscode/launch.json
 !.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
 *.suo

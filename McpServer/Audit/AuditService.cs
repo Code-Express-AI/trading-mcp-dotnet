@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol;
 using TradingMcp.Auth;
-using TradingMcp.Data;
+using TradingMcp.Repository;
 
 namespace TradingMcp.Audit;
 
@@ -12,10 +12,10 @@ namespace TradingMcp.Audit;
 /// message goes back to the model, so schema details never leak into a conversation.
 /// </summary>
 public sealed class AuditService(
-    TradingRepository repo,
+    ITradingRepository repo,
     IHttpContextAccessor http,
     IConfiguration config,
-    ILogger<AuditService> log)
+    ILogger<AuditService> log) : IAuditService
 {
     // Banks often require "no audit record, no data". Set Audit:FailClosed=true to refuse
     // to return results when the audit row can't be written.

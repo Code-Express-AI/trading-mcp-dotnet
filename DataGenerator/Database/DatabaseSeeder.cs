@@ -7,52 +7,50 @@ namespace TradingDataGenerator.Database;
 
 public sealed class DatabaseSeeder : IDatabaseSeeder
 {
-    private readonly string _databaseConnectionString;
+    private readonly IDatabaseSeederSessionFactory _sessionFactory;
 
     public DatabaseSeeder(string databaseConnectionString)
     {
-        _databaseConnectionString = databaseConnectionString;
+        _sessionFactory = new SqlDatabaseSeederSessionFactory(databaseConnectionString, this);
     }
 
-    public async Task<int> SeedAsync(GeneratedData generatedData)
+    internal DatabaseSeeder(IDatabaseSeederSessionFactory sessionFactory)
     {
-        int existingInstrumentCount;
-        SqlTransaction sqlTransaction;
-        await using var sqlConnection = new SqlConnection(_databaseConnectionString);
-        await sqlConnection.OpenAsync();
+        _sessionFactory = sessionFactory;
+    }
 
-        await using (sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    public Task<int> SeedAsync(GeneratedData generatedData)
+    {
+        return SeedAsync(generatedData, resetExistingData: false);
+    }
+
+    private async Task<int> SeedAsync(GeneratedData generatedData, bool resetExistingData)
+    {
+        IDatabaseSeederSession session;
+        int existingInstrumentCount;
+
+        session = await _sessionFactory.BeginTransactionAsync();
+        await using (session)
         {
-            existingInstrumentCount = await ExecuteScalarIntAsync(
-                sqlConnection, sqlTransaction, "SELECT COUNT(*) FROM trading.Instruments");
+            existingInstrumentCount = await session.GetExistingInstrumentCountAsync();
             if (existingInstrumentCount > 0)
             {
-                Console.Error.WriteLine(ErrorMessages.DatabaseAlreadyContainsData);
-                return ExitCodes.DatabaseAlreadyContainsData;
+                if (!resetExistingData)
+                {
+                    Console.Error.WriteLine(ErrorMessages.DatabaseAlreadyContainsData);
+                    return ExitCodes.DatabaseAlreadyContainsData;
+                }
+
+                await session.ClearDataAsync();
             }
 
-            return await InsertAndCommitAsync(sqlConnection, sqlTransaction, generatedData);
+            return await session.InsertAndCommitAsync(generatedData);
         }
     }
 
-    public async Task<int> SeedAsyncWithReset(GeneratedData generatedData)
+    public Task<int> SeedAsyncWithReset(GeneratedData generatedData)
     {
-        int existingInstrumentCount;
-        SqlTransaction sqlTransaction;
-        await using var sqlConnection = new SqlConnection(_databaseConnectionString);
-        await sqlConnection.OpenAsync();
-
-        await using (sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
-        {
-            existingInstrumentCount = await ExecuteScalarIntAsync(
-                sqlConnection, sqlTransaction, "SELECT COUNT(*) FROM trading.Instruments");
-            if (existingInstrumentCount > 0)
-            {
-                await ClearDataAsync(sqlConnection, sqlTransaction);
-            }
-
-            return await InsertAndCommitAsync(sqlConnection, sqlTransaction, generatedData);
-        }
+        return SeedAsync(generatedData, resetExistingData: true);
     }
 
     private async Task<int> InsertAndCommitAsync(
@@ -223,4 +221,74 @@ public sealed class DatabaseSeeder : IDatabaseSeeder
             await sqlCommand.ExecuteNonQueryAsync();
         }
     }
+
+    private sealed class SqlDatabaseSeederSessionFactory(string databaseConnectionString, DatabaseSeeder owner)
+        : IDatabaseSeederSessionFactory
+    {
+        public async Task<IDatabaseSeederSession> BeginTransactionAsync()
+        {
+            SqlConnection sqlConnection;
+            SqlTransaction sqlTransaction;
+
+            sqlConnection = new SqlConnection(databaseConnectionString);
+            try
+            {
+                await sqlConnection.OpenAsync();
+                sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync();
+            }
+            catch
+            {
+                await sqlConnection.DisposeAsync();
+                throw;
+            }
+
+            return new SqlDatabaseSeederSession(owner, sqlConnection, sqlTransaction);
+        }
+    }
+
+    private sealed class SqlDatabaseSeederSession(
+        DatabaseSeeder owner,
+        SqlConnection sqlConnection,
+        SqlTransaction sqlTransaction) : IDatabaseSeederSession
+    {
+        public Task<int> GetExistingInstrumentCountAsync()
+        {
+            return owner.ExecuteScalarIntAsync(
+                sqlConnection, sqlTransaction, "SELECT COUNT(*) FROM trading.Instruments");
+        }
+
+        public Task ClearDataAsync()
+        {
+            return owner.ClearDataAsync(sqlConnection, sqlTransaction);
+        }
+
+        public Task<int> InsertAndCommitAsync(GeneratedData generatedData)
+        {
+            return owner.InsertAndCommitAsync(sqlConnection, sqlTransaction, generatedData);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await sqlTransaction.DisposeAsync();
+            }
+            finally
+            {
+                await sqlConnection.DisposeAsync();
+            }
+        }
+    }
+}
+
+internal interface IDatabaseSeederSessionFactory
+{
+    Task<IDatabaseSeederSession> BeginTransactionAsync();
+}
+
+internal interface IDatabaseSeederSession : IAsyncDisposable
+{
+    Task<int> GetExistingInstrumentCountAsync();
+    Task ClearDataAsync();
+    Task<int> InsertAndCommitAsync(GeneratedData generatedData);
 }

@@ -146,7 +146,7 @@ public sealed class TradesGenerator : ITradesGenerator
             (tradeDetails.InstrumentId, tradingDay)];
         tradePrice = CalculateTradePrice(randomNumberGenerator, closingPrice);
         tradeFees = CalculateTradeFees(tradeDetails.Quantity, tradePrice);
-        tradeTimestamp = CreateTradeTimestamp(randomNumberGenerator, tradingDay);
+        tradeTimestamp = CreateTradeTimestamp(randomNumberGenerator, accountTradingState, tradingDay);
         tradeStatus = GetTradeStatus(tradingDay, accountTradingState.LastTradingDay);
 
         return new TradeBuilder()
@@ -256,6 +256,24 @@ public sealed class TradesGenerator : ITradesGenerator
         return tradeTimestamp;
     }
 
+    private DateTime CreateTradeTimestamp(
+        Random randomNumberGenerator,
+        AccountTradingState accountTradingState,
+        DateTime tradingDay)
+    {
+        DateTime tradeTimestamp;
+
+        tradeTimestamp = CreateTradeTimestamp(randomNumberGenerator, tradingDay);
+        if (accountTradingState.LastTradeTimestamp is { } previousTradeTimestamp
+            && tradeTimestamp < previousTradeTimestamp)
+        {
+            tradeTimestamp = previousTradeTimestamp;
+        }
+
+        accountTradingState.LastTradeTimestamp = tradeTimestamp;
+        return tradeTimestamp;
+    }
+
     private string GetTradeStatus(DateTime tradingDay, DateTime lastTradingDay)
     {
         string tradeStatus;
@@ -283,6 +301,7 @@ public sealed class TradesGenerator : ITradesGenerator
         public Dictionary<(int InstrumentId, DateTime TradingDate), decimal> ClosingPricesByInstrumentAndDate { get; }
         public DateTime LastTradingDay { get; }
         public Dictionary<int, decimal> ShareHoldingsByInstrumentId { get; } = new();
+        public DateTime? LastTradeTimestamp { get; set; }
     }
 
     private sealed record TradeDetails(int InstrumentId, decimal Quantity, string Side);

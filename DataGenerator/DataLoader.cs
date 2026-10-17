@@ -8,12 +8,28 @@ namespace TradingDataGenerator;
 
 internal sealed class DataLoader : IDataLoader
 {
+    private readonly IDataPreparation _dataPreparation;
+    private readonly Func<string, IDatabaseSeeder> _databaseSeederFactory;
+
+    internal DataLoader()
+        : this(
+            new DataPreparation(new SyntheticDataGenerator()),
+            databaseConnectionString => new DatabaseSeeder(databaseConnectionString))
+    {
+    }
+
+    internal DataLoader(
+        IDataPreparation dataPreparation,
+        Func<string, IDatabaseSeeder> databaseSeederFactory)
+    {
+        _dataPreparation = dataPreparation;
+        _databaseSeederFactory = databaseSeederFactory;
+    }
+
     public async Task<int> LoadAsync(string[] commandLineArgs, string databaseConnectionString)
     {
         GeneratorOptionsParseResult generatorOptionsParseResult;
         GeneratorOptions generatorOptions;
-        IDataPreparation dataPreparation;
-        ISyntheticDataGenerator syntheticDataGenerator;
         GeneratedData generatedData;
         IDatabaseSeeder databaseSeeder;
         int seedResultCode;
@@ -26,10 +42,8 @@ internal sealed class DataLoader : IDataLoader
         }
 
         generatorOptions = parsedGeneratorOptions;
-        syntheticDataGenerator = new SyntheticDataGenerator();
-        dataPreparation = new DataPreparation(syntheticDataGenerator);
-        generatedData = dataPreparation.PrepareGeneratedData(generatorOptions);
-        databaseSeeder = new DatabaseSeeder(databaseConnectionString);
+        generatedData = _dataPreparation.PrepareGeneratedData(generatorOptions);
+        databaseSeeder = _databaseSeederFactory(databaseConnectionString);
         if (generatorOptions.Reset)
         {
             seedResultCode = await databaseSeeder.SeedAsyncWithReset(generatedData);

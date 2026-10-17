@@ -1,0 +1,7 @@
+{
+    "coverage-gutters.coverageBaseDir": "**/TestResults/**",
+    "coverage-gutters.coverageFileNames": [
+        "coverage.cobertura.xml"
+    ],
+    "coverage-gutters.watchOnActivate": true
+}

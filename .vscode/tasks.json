@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "XTests: Run tests with coverage",
+            "type": "shell",
+            "command": "dotnet",
+            "args": [
+                "test",
+                "XTests/XTests.csproj",
+                "--collect:XPlat Code Coverage"
+            ],
+            "group": "test",
+            "problemMatcher": []
+        }
+    ]
+}

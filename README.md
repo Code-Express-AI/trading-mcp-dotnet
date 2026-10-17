@@ -89,6 +89,16 @@ dotnet user-secrets list
 
 ```
 
+## Tests and coverage
+
+Run the xUnit suite with coverage collection:
+
+```bash
+dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"
+```
+
+In VS Code, the `XTests: Run tests with coverage` task runs the same command. To view coverage in the editor, install the recommended Coverage Gutters extension and run **Coverage Gutters: Display Coverage** after the tests complete.
+
 ## Security design
 
 - The MCP database user has **no table permissions**, only `EXECUTE` on a fixed set of stored procedures.

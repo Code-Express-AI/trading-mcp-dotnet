@@ -14,4 +14,8 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="XTests" />
+  </ItemGroup>
+
 </Project>

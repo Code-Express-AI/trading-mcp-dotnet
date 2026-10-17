@@ -16,7 +16,7 @@ public sealed class ClientGenerator : IClientGenerator
         int clientId;
         string firstName;
         string lastName;
-        string         emailLocalPart;
+        string emailLocalPart;
 
         clientFaker = new Faker("en_GB") { Random = new Randomizer(randomSeed) };
         availableCountries = SeedData.Countries.ToArray();
