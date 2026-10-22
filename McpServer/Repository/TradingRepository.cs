@@ -2,7 +2,7 @@ using System.Data;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using TradingMcp.Model;
-using TradingMcp.Repository;
+using TradingMcp.Tools;
 
 namespace TradingMcp.Repository;
 
@@ -14,15 +14,26 @@ public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRep
 {
     private const int QueryTimeoutSeconds = 15;
 
+    // The stored procedures report arguments only the database can check, such as an unknown ticker or account,
+    // with THROW and an error number of 50000 or more. Those messages are written for the model.
+    private const int FirstUserDefinedErrorNumber = 50000;
+
     private async Task<IReadOnlyList<T>> QueryAsync<T>(string procedure, object? args, CancellationToken ct)
     {
-        await using var conn = connect();
-        var rows = await conn.QueryAsync<T>(new CommandDefinition(
-            procedure, args,
-            commandType: CommandType.StoredProcedure,
-            commandTimeout: QueryTimeoutSeconds,
-            cancellationToken: ct));
-        return rows.AsList();
+        try
+        {
+            await using var conn = connect();
+            var rows = await conn.QueryAsync<T>(new CommandDefinition(
+                procedure, args,
+                commandType: CommandType.StoredProcedure,
+                commandTimeout: QueryTimeoutSeconds,
+                cancellationToken: ct));
+            return rows.AsList();
+        }
+        catch (SqlException exception) when (exception.Number >= FirstUserDefinedErrorNumber)
+        {
+            throw new ToolArgumentException(exception.Message);
+        }
     }
 
     // Dapper parameters are plain DateTime, so DateOnly is converted here.

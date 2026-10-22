@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using TradingMcp.Audit;
 using TradingMcp.Auth;
 using TradingMcp.Repository;
@@ -10,31 +7,65 @@ namespace TradingMcp;
 
 internal static class McpServerApplication
 {
-    internal static WebApplication Build(string[] args)
-    {
-        WebApplicationBuilder builder;
-        string connectionString;
-        bool useEntra;
-        WebApplication application;
+    private const string UserSecretsHint = "See docs/02-run-server-and-inspector.md for the user-secrets commands.";
 
-        builder = WebApplication.CreateBuilder(args);
-        connectionString = GetConnectionString(builder.Configuration);
-        useEntra = UsesEntraAuthentication(builder.Configuration);
-        AddServices(builder, connectionString, useEntra);
-        application = builder.Build();
-        ConfigureApplication(application, useEntra);
+    public static WebApplication Build(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
+        var configuration = builder.Configuration;
+        var connectionString = RequireConnectionString(configuration);
+        var useEntra = UsesEntraAuthentication(configuration);
+
+        builder.Services.AddSingleton<Func<SqlConnection>>(_ => () => new SqlConnection(connectionString));
+        builder.Services.AddSingleton<ITradingRepository, TradingRepository>();
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddSingleton<IAuditService, AuditService>();
+        if (useEntra)
+        {
+            builder.Services.AddEntraAuth(configuration);
+        }
+        else
+        {
+            builder.Services.AddSingleton(BearerTokenMiddleware.LoadTokens(configuration));
+        }
+
+        CallerRateLimiter.AddServices(builder.Services);
+        builder.Services.AddMcpServer().WithHttpTransport(http => http.Stateless = true).WithToolsFromAssembly();
+
+        var application = builder.Build();
+        application.Logger.LogInformation("Authentication mode: {Mode}", useEntra ? "Entra" : "StaticTokens");
+
+        // Anonymous, so a hosting platform can check the server is up. It doesn't touch the database.
+        application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+        if (useEntra)
+        {
+            application.UseAuthentication();
+            application.UseAuthorization();
+        }
+        else
+        {
+            application.UseMiddleware<BearerTokenMiddleware>();
+        }
+
+        // After authentication, so each caller gets their own limit.
+        application.UseRateLimiter();
+
+        var mcp = application.MapMcp("/mcp");
+        if (useEntra)
+        {
+            mcp.RequireAuthorization(EntraAuthExtensions.ReadPolicy);
+        }
 
         return application;
     }
 
-    private static string GetConnectionString(IConfiguration configuration)
+    private static string RequireConnectionString(IConfiguration configuration)
     {
-        string? connectionString;
-
-        connectionString = configuration.GetConnectionString("Trading");
+        var connectionString = configuration.GetConnectionString("Trading");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            throw new InvalidOperationException("ConnectionStrings:Trading is not configured.");
+            throw new ServerConfigurationException($"ConnectionStrings:Trading isn't set. {UserSecretsHint}");
         }
 
         return connectionString;
@@ -42,9 +73,7 @@ internal static class McpServerApplication
 
     private static bool UsesEntraAuthentication(IConfiguration configuration)
     {
-        string authMode;
-
-        authMode = configuration["Auth:Mode"] ?? "StaticTokens";
+        var authMode = configuration["Auth:Mode"] ?? "StaticTokens";
         if (authMode.Equals("Entra", StringComparison.OrdinalIgnoreCase))
         {
             return true;
@@ -55,84 +84,6 @@ internal static class McpServerApplication
             return false;
         }
 
-        throw new InvalidOperationException(
-            $"Unknown Auth:Mode '{authMode}'. Use 'StaticTokens' or 'Entra'.");
-    }
-
-    private static void AddServices(
-        WebApplicationBuilder builder,
-        string connectionString,
-        bool useEntra)
-    {
-        AddDatabaseServices(builder.Services, connectionString);
-        AddAuthenticationServices(builder.Services, builder.Configuration, useEntra);
-        CallerRateLimiter.AddServices(builder.Services);
-        AddMcpServices(builder.Services);
-    }
-
-    private static void AddDatabaseServices(IServiceCollection services,     string connectionString)
-    {
-    services.AddSingleton<Func<SqlConnection>>(_ => () => new SqlConnection(connectionString));
-    services.AddSingleton<ITradingRepository, TradingRepository>();
-    services.AddHttpContextAccessor();
-    services.AddSingleton<IAuditService, AuditService>();
-    }
-
-    private static void AddAuthenticationServices(
-        IServiceCollection services,
-        IConfiguration configuration,
-        bool useEntra)
-    {
-        if (useEntra)
-        {
-            services.AddEntraAuth(configuration);
-        }
-    }
-
-    private static void AddMcpServices(IServiceCollection services)
-    {
-        services
-            .AddMcpServer()
-            .WithHttpTransport(http => http.Stateless = true)
-            .WithToolsFromAssembly();
-    }
-
-    private static void ConfigureApplication(WebApplication application, bool useEntra)
-    {
-        application.Logger.LogInformation(
-            "Authentication mode: {Mode}",
-            useEntra ? "Entra" : "StaticTokens");
-
-        MapHealthEndpoint(application);
-        ConfigureAuthenticationMiddleware(application, useEntra);
-        application.UseRateLimiter();
-        MapMcpEndpoint(application, useEntra);
-    }
-
-    private static void MapHealthEndpoint(WebApplication application)
-    {
-        application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-    }
-
-    private static void ConfigureAuthenticationMiddleware(WebApplication application, bool useEntra)
-    {
-        if (useEntra)
-        {
-            application.UseAuthentication();
-            application.UseAuthorization();
-        }
-        else
-        {
-            application.UseMiddleware<BearerTokenMiddleware>();
-        }
-    }
-
-    private static void MapMcpEndpoint(WebApplication application, bool useEntra)
-    {
-        var mcp = application.MapMcp("/mcp");
-        if (useEntra)
-        {
-            mcp.RequireAuthorization(EntraAuthExtensions.ReadPolicy);
-        }
+        throw new ServerConfigurationException($"Unknown Auth:Mode '{authMode}'. Use 'StaticTokens' or 'Entra'.");
     }
 }

@@ -8,161 +8,81 @@ namespace XTests.McpServer;
 
 public class When_Trading_Tools_Are_Called
 {
-    [Fact]
-    public async Task get_dataset_info_should_audit_and_return_repository_results()
+    private readonly ITradingRepository _repository = Substitute.For<ITradingRepository>();
+    private readonly RecordingAuditService _audit = new();
+    private readonly TradingTools _tools;
+
+    public When_Trading_Tools_Are_Called()
     {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
+        _tools = new TradingTools(_repository, _audit);
+    }
+
+    public static TheoryData<string, Func<TradingTools, Task>, string> InvalidCalls => new()
+    {
+        { "search_instruments", tools => tools.SearchInstruments(" "), "text must not be empty, for example 'MAR' or 'Pharma'." },
+        { "get_price_history", tools => tools.GetPriceHistory(""), "ticker must not be empty. Use search_instruments to find one." },
+        { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
+        { "get_top_movers", tools => tools.GetTopMovers(count: 0), "count must be between 1 and 20." },
+        { "get_top_movers", tools => tools.GetTopMovers(count: 21), "count must be between 1 and 20." },
+        { "find_accounts", tools => tools.FindAccounts("a"), "name must be at least 2 characters, for example 'Smith'." },
+        { "find_accounts", tools => tools.FindAccounts(" a "), "name must be at least 2 characters, for example 'Smith'." },
+        { "find_accounts", tools => tools.FindAccounts(null!), "name must be at least 2 characters, for example 'Smith'." },
+        { "list_trades", tools => tools.ListTrades(0), "accountId must be a positive number. Use find_accounts to look it up." },
+        { "list_trades", tools => tools.ListTrades(1, new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
+        { "list_trades", tools => tools.ListTrades(1, page: 0), "page must be between 1 and 1000." },
+        { "list_trades", tools => tools.ListTrades(1, page: 1001), "page must be between 1 and 1000." },
+        { "get_positions", tools => tools.GetPositions(-1), "accountId must be a positive number. Use find_accounts to look it up." },
+        { "get_portfolio_summary", tools => tools.GetPortfolioSummary(0), "accountId must be a positive number. Use find_accounts to look it up." }
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidCalls))]
+    public async Task it_should_reject_invalid_arguments_with_a_message_for_the_model_without_calling_the_database(
+        string toolName, Func<TradingTools, Task> call, string expectedMessage)
+    {
+        var exception = await Assert.ThrowsAsync<ToolArgumentException>(() => call(_tools));
+
+        Assert.Equal(expectedMessage, exception.Message);
+        Assert.Equal(toolName, _audit.ToolName);
+        Assert.Empty(_repository.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task it_should_return_the_repository_results_through_the_audit_wrapper()
+    {
         IReadOnlyList<DatasetInfo> expected = [new DatasetInfo(DateTime.UnixEpoch, DateTime.UnixEpoch, 1, 2, 3)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.GetDatasetInfo(cancellationSource.Token), expected);
+        _repository.GetDatasetInfo(Arg.Any<CancellationToken>()).Returns(expected);
 
-        var result = await tools.GetDatasetInfo(cancellationSource.Token);
+        var result = await _tools.GetDatasetInfo();
 
         Assert.Same(expected, result);
-        await repository.Received(1).GetDatasetInfo(cancellationSource.Token);
-        Assert.Equal("get_dataset_info", audit.ToolName);
+        Assert.Equal("get_dataset_info", _audit.ToolName);
     }
 
     [Fact]
-    public async Task search_instruments_should_forward_search_text_and_cancellation()
+    public async Task it_should_pass_every_argument_and_the_cancellation_token_to_the_repository()
     {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        IReadOnlyList<Instrument> expected = [new Instrument("EXMP", "Example", "Technology", "USD")];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.SearchInstruments("EX", cancellationSource.Token), expected);
+        using var cancellation = new CancellationTokenSource();
+        var from = new DateOnly(2026, 1, 1);
+        var to = new DateOnly(2026, 6, 30);
 
-        var result = await tools.SearchInstruments("EX", cancellationSource.Token);
+        await _tools.ListTrades(45, from, to, "MARP", 3, cancellation.Token);
 
-        Assert.Same(expected, result);
-        await repository.Received(1).SearchInstruments("EX", cancellationSource.Token);
-        Assert.Equal("search_instruments", audit.ToolName);
+        await _repository.Received(1).ListTrades(45, from, to, "MARP", 3, cancellation.Token);
+        Assert.Equal("list_trades", _audit.ToolName);
+        Assert.Equal(new { accountId = 45, from = (DateOnly?)from, to = (DateOnly?)to, ticker = (string?)"MARP", page = 3 }.ToString(),
+            _audit.Arguments?.ToString());
     }
 
     [Fact]
-    public async Task get_price_history_should_forward_ticker_dates_and_cancellation()
+    public async Task it_should_accept_the_boundary_values()
     {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        var from = new DateOnly(2025, 1, 1);
-        var to = new DateOnly(2025, 1, 31);
-        IReadOnlyList<Price> expected = [new Price(from.ToDateTime(TimeOnly.MinValue), 1, 2, 0, 1, 10)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.GetPriceHistory("EXMP", from, to, cancellationSource.Token), expected);
+        await _tools.GetTopMovers(count: 1);
+        await _tools.GetTopMovers(count: 20);
+        await _tools.FindAccounts("Al");
+        await _tools.ListTrades(1, page: 1000);
 
-        var result = await tools.GetPriceHistory("EXMP", from, to, cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).GetPriceHistory("EXMP", from, to, cancellationSource.Token);
-        Assert.Equal("get_price_history", audit.ToolName);
-    }
-
-    [Fact]
-    public async Task get_top_movers_should_forward_date_count_and_cancellation()
-    {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        var date = new DateOnly(2025, 1, 31);
-        IReadOnlyList<Mover> expected = [new Mover("EXMP", "Example", date.ToDateTime(TimeOnly.MinValue), 2, 1, 100)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.GetTopMovers(date, 10, cancellationSource.Token), expected);
-
-        var result = await tools.GetTopMovers(date, 10, cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).GetTopMovers(date, 10, cancellationSource.Token);
-        Assert.Equal("get_top_movers", audit.ToolName);
-    }
-
-    [Fact]
-    public async Task find_accounts_should_forward_name_and_cancellation()
-    {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        IReadOnlyList<Account> expected =
-            [new Account(1, "****1234", "Avery Example", "GB", "Balanced", "Brokerage", "GBP", DateTime.UnixEpoch)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.FindAccounts("Avery", cancellationSource.Token), expected);
-
-        var result = await tools.FindAccounts("Avery", cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).FindAccounts("Avery", cancellationSource.Token);
-        Assert.Equal("find_accounts", audit.ToolName);
-    }
-
-    [Fact]
-    public async Task list_trades_should_forward_all_filters_paging_and_cancellation()
-    {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        var from = new DateOnly(2025, 1, 1);
-        var to = new DateOnly(2025, 1, 31);
-        IReadOnlyList<Trade> expected = [new Trade(12, DateTime.UnixEpoch, "EXMP", "BUY", 2, 10, 1, "SETTLED")];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(
-            () => repository.ListTrades(45, from, to, "EXMP", 3, cancellationSource.Token),
-            expected);
-
-        var result = await tools.ListTrades(45, from, to, "EXMP", 3, cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).ListTrades(45, from, to, "EXMP", 3, cancellationSource.Token);
-        Assert.Equal("list_trades", audit.ToolName);
-    }
-
-    [Fact]
-    public async Task get_positions_should_forward_account_id_and_cancellation()
-    {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        IReadOnlyList<Position> expected =
-            [new Position("EXMP", "Example", "Technology", "USD", 1, 10, DateTime.UnixEpoch, 12, 12, 2, 20)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.GetPositions(45, cancellationSource.Token), expected);
-
-        var result = await tools.GetPositions(45, cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).GetPositions(45, cancellationSource.Token);
-        Assert.Equal("get_positions", audit.ToolName);
-    }
-
-    [Fact]
-    public async Task get_portfolio_summary_should_forward_account_id_and_cancellation()
-    {
-        var repository = Substitute.For<ITradingRepository>();
-        var audit = CreateTransparentAudit();
-        var tools = new TradingTools(repository, audit);
-        IReadOnlyList<SectorSummary> expected = [new SectorSummary("Technology", "USD", 1, 12, 2)];
-        using var cancellationSource = new CancellationTokenSource();
-        ConfigureRepositoryCall(() => repository.GetPortfolioSummary(45, cancellationSource.Token), expected);
-
-        var result = await tools.GetPortfolioSummary(45, cancellationSource.Token);
-
-        Assert.Same(expected, result);
-        await repository.Received(1).GetPortfolioSummary(45, cancellationSource.Token);
-        Assert.Equal("get_portfolio_summary", audit.ToolName);
-    }
-
-    private static RecordingAuditService CreateTransparentAudit()
-    {
-        return new RecordingAuditService();
-    }
-
-    private static void ConfigureRepositoryCall<T>(
-        Func<Task<IReadOnlyList<T>>> repositoryCall,
-        IReadOnlyList<T> result)
-    {
-        repositoryCall().Returns(Task.FromResult(result));
+        Assert.Equal(4, _repository.ReceivedCalls().Count());
     }
 
     private sealed class RecordingAuditService : IAuditService
@@ -170,10 +90,7 @@ public class When_Trading_Tools_Are_Called
         public string? ToolName { get; private set; }
         public object? Arguments { get; private set; }
 
-        public Task<IReadOnlyList<T>> RunAsync<T>(
-            string tool,
-            object args,
-            Func<Task<IReadOnlyList<T>>> action)
+        public Task<IReadOnlyList<T>> RunAsync<T>(string tool, object args, Func<Task<IReadOnlyList<T>>> action)
         {
             ToolName = tool;
             Arguments = args;

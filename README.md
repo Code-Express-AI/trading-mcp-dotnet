@@ -78,9 +78,9 @@ In VS Code, the `XTests: Run tests with coverage` task runs the same command. To
 
 | Component | Version | Date checked |
 |-----------|---------|--------------|
-| .NET SDK | 10.0.x | 15-Oct-2026 |
-| ModelContextProtocol.AspNetCore | 2.1.0 | 15-Oct-2026 |
-| SQL Server container | 2022-latest | 15-Oct-2026 |
+| .NET SDK | 10.0.x | 22-Oct-2026 |
+| ModelContextProtocol.AspNetCore | 2.3.0 | 22-Oct-2026 |
+| SQL Server container | 2022-latest | 22-Oct-2026 |
 | Host / model | VS Code / Copilot | 15-Oct-2026 |
 
 The MCP SDK and its authorization support are changing quickly, so check the repository's issues for known problems.

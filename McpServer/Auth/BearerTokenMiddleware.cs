@@ -4,6 +4,8 @@ using System.Text;
 
 namespace TradingMcp.Auth;
 
+internal sealed record BearerToken(string Name, byte[] Hash);
+
 /// <summary>
 /// Minimal bearer-token authentication. Each client gets its own named token
 /// (Mcp:Tokens:claude-desktop, Mcp:Tokens:inspector, ...), so the audit log shows WHICH client
@@ -12,31 +14,33 @@ namespace TradingMcp.Auth;
 /// This is the simple version, used while building the server. For production, validate JWTs from Microsoft Entra ID
 /// with AddJwtBearer instead - you get expiry, rotation and per-user identity.
 /// </summary>
-public sealed class BearerTokenMiddleware
+internal sealed class BearerTokenMiddleware(RequestDelegate next, BearerToken[] tokens)
 {
     private const int MinTokenLength = 32;
 
-    private readonly RequestDelegate _next;
-    private readonly (string Name, byte[] Hash)[] _tokens;
+    private const string SetTokenHint =
+        "From the McpServer folder, run: dotnet user-secrets set \"Mcp:Tokens:inspector\" \"<random token of 32+ characters>\"";
 
-    public BearerTokenMiddleware(RequestDelegate next, IConfiguration config)
+    // Called while the app is built, so a missing or weak token stops the server before it starts.
+    // Only hashes are kept in memory; comparison is on equal-length digests.
+    public static BearerToken[] LoadTokens(IConfiguration configuration)
     {
-        _next = next;
+        var configured = configuration.GetSection("Mcp:Tokens").GetChildren().ToList();
+        if (configured.Count == 0)
+        {
+            throw new ServerConfigurationException($"No bearer tokens are set. {SetTokenHint}");
+        }
 
-        var section = config.GetSection("Mcp:Tokens").GetChildren().ToList();
+        foreach (var token in configured)
+        {
+            if (string.IsNullOrEmpty(token.Value) || token.Value.Length < MinTokenLength)
+            {
+                throw new ServerConfigurationException(
+                    $"Mcp:Tokens:{token.Key} must be at least {MinTokenLength} characters. {SetTokenHint}");
+            }
+        }
 
-        if (section.Count == 0 || section.Any(c => string.IsNullOrEmpty(c.Value)))
-            throw new InvalidOperationException(
-                "No bearer tokens configured. Set Mcp:Tokens:<client-name>, e.g. " +
-                "`dotnet user-secrets set \"Mcp:Tokens:inspector\" \"<random 32+ chars>\"`.");
-
-        if (section.Any(c => c.Value!.Length < MinTokenLength))
-            throw new InvalidOperationException($"Every token must be at least {MinTokenLength} characters.");
-
-        // Only hashes are kept in memory; comparison is on equal-length digests.
-        _tokens = section
-            .Select(c => (Name: c.Key, Hash: SHA256.HashData(Encoding.UTF8.GetBytes(c.Value!))))
-            .ToArray();
+        return configured.Select(token => new BearerToken(token.Key, Hash(token.Value!))).ToArray();
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -44,23 +48,21 @@ public sealed class BearerTokenMiddleware
         // Anonymous health probe for the hosting platform. Exposes nothing.
         if (context.Request.Path.StartsWithSegments("/health"))
         {
-            await _next(context);
+            await next(context);
             return;
         }
 
         var header = context.Request.Headers.Authorization.ToString();
-
         if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
-            var supplied = SHA256.HashData(Encoding.UTF8.GetBytes(header[7..].Trim()));
-
-            foreach (var (name, hash) in _tokens)
+            var supplied = Hash(header[7..].Trim());
+            foreach (var (name, hash) in tokens)
             {
                 if (CryptographicOperations.FixedTimeEquals(supplied, hash))
                 {
                     context.User = new ClaimsPrincipal(
                         new ClaimsIdentity([new Claim(ClaimTypes.Name, name)], authenticationType: "Bearer"));
-                    await _next(context);
+                    await next(context);
                     return;
                 }
             }
@@ -69,4 +71,6 @@ public sealed class BearerTokenMiddleware
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.Headers.WWWAuthenticate = "Bearer";
     }
+
+    private static byte[] Hash(string token) => SHA256.HashData(Encoding.UTF8.GetBytes(token));
 }

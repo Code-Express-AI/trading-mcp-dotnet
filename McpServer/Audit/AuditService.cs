@@ -3,13 +3,15 @@ using System.Text.Json;
 using ModelContextProtocol;
 using TradingMcp.Auth;
 using TradingMcp.Repository;
+using TradingMcp.Tools;
 
 namespace TradingMcp.Audit;
 
 /// <summary>
 /// Wraps every tool call: who called it, with what arguments, how long it took, how many rows came
-/// back, and whether it succeeded. Database errors are logged in full on the server but only a generic
-/// message goes back to the model, so schema details never leak into a conversation.
+/// back, and whether it succeeded. Argument problems go back to the model as they are, so it can fix them.
+/// Any other error is logged in full on the server, but only a generic message goes back to the model,
+/// so schema details never leak into a conversation.
 /// </summary>
 public sealed class AuditService(
     ITradingRepository repo,
@@ -17,6 +19,9 @@ public sealed class AuditService(
     IConfiguration config,
     ILogger<AuditService> log) : IAuditService
 {
+    internal const string GenericErrorMessage =
+        "The server couldn't complete this request. It isn't caused by the arguments, so don't retry with different ones.";
+
     // Banks often require "no audit record, no data". Set Audit:FailClosed=true to refuse
     // to return results when the audit row can't be written.
     private readonly bool _failClosed = config.GetValue("Audit:FailClosed", false);
@@ -34,6 +39,11 @@ public sealed class AuditService(
             rows = await action();
             return rows;
         }
+        catch (ToolArgumentException ex)
+        {
+            error = Truncate($"Invalid arguments: {ex.Message}", 500);
+            throw;
+        }
         catch (OperationCanceledException)
         {
             error = "Cancelled";
@@ -43,7 +53,7 @@ public sealed class AuditService(
         {
             error = Truncate($"{ex.GetType().Name}: {ex.Message}", 500);
             log.LogError(ex, "Tool {Tool} failed for caller {Caller}", tool, caller);
-            throw new McpException("The request could not be completed. Check the arguments and try again.");
+            throw new McpException(GenericErrorMessage);
         }
         finally
         {

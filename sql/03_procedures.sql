@@ -7,6 +7,9 @@
    cannot touch directly. Every procedure below therefore acts as a hard cap on
    what the agent can ask for (row limits, fixed columns, no free-form SQL).
    NOTE: dynamic SQL (EXEC(@sql)) breaks the ownership chain - don't use it here.
+
+   Errors numbered 50000+ (THROW) are argument problems only the database can spot, such as an
+   unknown ticker. The MCP server passes their messages straight to the model, so write them for it.
    ===================================================================== */
 
 /* Safety check: never create objects in a system database. */
@@ -59,6 +62,8 @@ BEGIN
     SET NOCOUNT ON;
     SET @From = ISNULL(@From, '1900-01-01');
     SET @To   = ISNULL(@To,   '9999-12-31');
+    IF NOT EXISTS (SELECT 1 FROM trading.Instruments WHERE Ticker = @Ticker)
+        THROW 50001, N'Unknown ticker. Use search_instruments to find the right one.', 1;
 
     WITH recent AS (
         SELECT TOP (250) p.PriceDate, p.OpenPrice, p.HighPrice, p.LowPrice, p.ClosePrice, p.Volume
@@ -142,6 +147,10 @@ BEGIN
     DECLARE @PageSize INT = 50;
     IF @Page < 1    SET @Page = 1;
     IF @Page > 1000 SET @Page = 1000;
+    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
+    IF @Ticker IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trading.Instruments WHERE Ticker = @Ticker)
+        THROW 50001, N'Unknown ticker. Use search_instruments to find the right one.', 1;
 
     SELECT t.TradeId, t.TradeTimestamp, i.Ticker, RTRIM(t.Side) AS Side,
            t.Quantity, t.Price, t.Fees, t.Status
@@ -162,6 +171,8 @@ CREATE OR ALTER PROCEDURE mcp.GetPositions
 AS
 BEGIN
     SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
     SELECT TOP (200)
            Ticker, InstrumentName, Sector, Currency,
            NetQuantity, AvgBuyPrice, PriceAsOf, LastPrice, MarketValue, UnrealisedPnL,
@@ -178,6 +189,8 @@ CREATE OR ALTER PROCEDURE mcp.GetPortfolioSummary
 AS
 BEGIN
     SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
     SELECT CASE WHEN GROUPING(Sector) = 1 THEN 'TOTAL' ELSE Sector END AS Sector,
            MAX(Currency)        AS Currency,
            COUNT(*)             AS Positions,

@@ -55,12 +55,8 @@ public static class EntraAuthExtensions
             })
             .AddMcp(options =>
             {
-                // NOTE: the property types on ResourceMetadata have changed between SDK versions
-                // (Uri vs string). If this doesn't compile, let IntelliSense guide you, or compare
-                // with the ProtectedMCPServer sample in the modelcontextprotocol/csharp-sdk repo.
                 options.ResourceMetadata = new()
                 {
-                    // AuthorizationServers is a collection of strings in the current MCP SDK.
                     AuthorizationServers = { authority },
                     ScopesSupported = [$"api://{clientId}/{scope}"],
                 };
@@ -86,5 +82,5 @@ public static class EntraAuthExtensions
     private static string Required(IConfiguration config, string key) =>
         config[key] is { Length: > 0 } value
             ? value
-            : throw new InvalidOperationException($"{key} must be set when Auth:Mode is 'Entra'.");
+            : throw new ServerConfigurationException($"{key} must be set when Auth:Mode is 'Entra'.");
 }

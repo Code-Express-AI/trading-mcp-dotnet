@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using TradingMcp;
 using TradingMcp.Auth;
 
 namespace XTests.McpServer;
@@ -8,21 +9,33 @@ public class When_Bearer_Token_Middleware_Runs
 {
     private const string ConfiguredToken = "test-token-with-more-than-thirty-two-characters";
 
+    private int _nextCallCount;
+
+    private static IConfiguration CreateConfiguration(params (string Name, string? Value)[] tokens) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(tokens.Select(token => new KeyValuePair<string, string?>($"Mcp:Tokens:{token.Name}", token.Value)))
+            .Build();
+
+    private BearerTokenMiddleware CreateMiddleware() =>
+        new(_ => { _nextCallCount++; return Task.CompletedTask; },
+            BearerTokenMiddleware.LoadTokens(CreateConfiguration(("inspector", ConfiguredToken))));
+
+    private static DefaultHttpContext CreateRequest(string path, string? authorization = null)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+        context.Request.Headers.Authorization = authorization;
+        return context;
+    }
+
     [Fact]
     public async Task it_should_allow_health_requests_without_a_token()
     {
-        int nextCallCount;
-        BearerTokenMiddleware middleware;
-        DefaultHttpContext context;
+        var context = CreateRequest("/health/ready");
 
-        nextCallCount = 0;
-        middleware = CreateMiddleware(() => nextCallCount++);
-        context = new DefaultHttpContext();
-        context.Request.Path = "/health/ready";
+        await CreateMiddleware().InvokeAsync(context);
 
-        await middleware.InvokeAsync(context);
-
-        Assert.Equal(1, nextCallCount);
+        Assert.Equal(1, _nextCallCount);
         Assert.NotEqual(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
     }
 
@@ -30,21 +43,13 @@ public class When_Bearer_Token_Middleware_Runs
     [InlineData("")]
     [InlineData("Basic abc")]
     [InlineData("Bearer wrong-token")]
-    public async Task it_should_reject_missing_or_invalid_authorization_headers(string authorizationHeader)
+    public async Task it_should_reject_missing_or_invalid_authorization_headers(string authorization)
     {
-        int nextCallCount;
-        BearerTokenMiddleware middleware;
-        DefaultHttpContext context;
+        var context = CreateRequest("/mcp", authorization);
 
-        nextCallCount = 0;
-        middleware = CreateMiddleware(() => nextCallCount++);
-        context = new DefaultHttpContext();
-        context.Request.Path = "/mcp";
-        context.Request.Headers.Authorization = authorizationHeader;
+        await CreateMiddleware().InvokeAsync(context);
 
-        await middleware.InvokeAsync(context);
-
-        Assert.Equal(0, nextCallCount);
+        Assert.Equal(0, _nextCallCount);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
         Assert.Equal("Bearer", context.Response.Headers.WWWAuthenticate);
     }
@@ -52,59 +57,32 @@ public class When_Bearer_Token_Middleware_Runs
     [Fact]
     public async Task it_should_authenticate_the_matching_named_token()
     {
-        int nextCallCount;
-        BearerTokenMiddleware middleware;
-        DefaultHttpContext context;
+        var context = CreateRequest("/mcp", $"bEaReR  {ConfiguredToken} ");
 
-        nextCallCount = 0;
-        middleware = CreateMiddleware(() => nextCallCount++);
-        context = new DefaultHttpContext();
-        context.Request.Path = "/mcp";
-        context.Request.Headers.Authorization = $"bEaReR  {ConfiguredToken} ";
+        await CreateMiddleware().InvokeAsync(context);
 
-        await middleware.InvokeAsync(context);
-
-        Assert.Equal(1, nextCallCount);
+        Assert.Equal(1, _nextCallCount);
         Assert.True(context.User.Identity?.IsAuthenticated);
         Assert.Equal("inspector", context.User.Identity?.Name);
     }
 
     [Fact]
-    public void it_should_require_at_least_one_non_empty_configured_token()
+    public void it_should_explain_how_to_set_a_token_when_none_are_configured()
     {
-        Assert.Throws<InvalidOperationException>(() => CreateMiddleware(() => { }, []));
-        Assert.Throws<InvalidOperationException>(() => CreateMiddleware(
-            () => { },
-            [new KeyValuePair<string, string?>("inspector", "")]));
+        var exception = Assert.Throws<ServerConfigurationException>(() => BearerTokenMiddleware.LoadTokens(CreateConfiguration()));
+
+        Assert.StartsWith("No bearer tokens are set.", exception.Message);
+        Assert.Contains("dotnet user-secrets set \"Mcp:Tokens:inspector\"", exception.Message);
     }
 
-    [Fact]
-    public void it_should_reject_configured_tokens_that_are_too_short()
+    [Theory]
+    [InlineData("")]
+    [InlineData("short-token")]
+    public void it_should_name_the_token_that_is_empty_or_too_short(string value)
     {
-        Assert.Throws<InvalidOperationException>(() => CreateMiddleware(
-            () => { },
-            [new KeyValuePair<string, string?>("inspector", "short-token")]));
-    }
+        var exception = Assert.Throws<ServerConfigurationException>(() =>
+            BearerTokenMiddleware.LoadTokens(CreateConfiguration(("inspector", ConfiguredToken), ("desktop", value))));
 
-    private static BearerTokenMiddleware CreateMiddleware(
-        Action next,
-        IEnumerable<KeyValuePair<string, string?>>? tokens = null)
-    {
-        IConfiguration configuration;
-        RequestDelegate requestDelegate;
-
-        configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(tokens ??
-            [
-                new KeyValuePair<string, string?>("Mcp:Tokens:inspector", ConfiguredToken)
-            ])
-            .Build();
-        requestDelegate = _ =>
-        {
-            next();
-            return Task.CompletedTask;
-        };
-
-        return new BearerTokenMiddleware(requestDelegate, configuration);
+        Assert.StartsWith("Mcp:Tokens:desktop must be at least 32 characters.", exception.Message);
     }
 }
