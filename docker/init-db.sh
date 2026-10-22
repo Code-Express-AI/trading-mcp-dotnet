@@ -38,10 +38,7 @@ cat <<EOF
 
 Done. Database '$DB' is ready on localhost,1433 with the schema, the read-only mcp_reader user and the stored procedures.
 
-Next, load the synthetic data (it reads SA_PASSWORD from .env):
-  cd DataGenerator
-  dotnet run -- --reset
-
-Connection string for the MCP server (as mcp_reader):
-  Server=localhost,1433;Database=$DB;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True;Connect Timeout=5
+Next, load the data, then start the MCP server (both read their settings from .env):
+  dotnet run --project DataGenerator
+  dotnet run --project McpServer
 EOF

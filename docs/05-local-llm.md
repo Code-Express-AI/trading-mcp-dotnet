@@ -1,25 +1,26 @@
-# 5. Optional: use a local LLM from VS Code
+# 5. Optional: use a local model
 
-You can use the local MCP server with a local model instead of a hosted model. This guide uses Ollama's VS Code integration; the MCP server and database setup are the same as in the local guides.
+You can run the same MCP server with a model on your own machine instead of a cloud model. Nothing changes on the server: VS Code still connects to it in the same way, and only the model behind the chat is different. This guide uses Ollama.
 
-## Prerequisites
+A local model also means the trading data never leaves your machine, which matters when the data is real.
 
-- Complete [the database setup](01-docker-database.md).
-- Complete [the VS Code MCP configuration](03-vscode-copilot.md) and keep the server running.
-- Install [Ollama](https://ollama.com/) and [VS Code](https://code.visualstudio.com/).
+## Before you start
+
+- Complete guides [1](01-docker-database.md), [2](02-run-server-and-inspector.md) and [3](03-vscode-copilot.md), and keep the server running.
+- Install [Ollama](https://ollama.com/).
 
 ## Set up Ollama in VS Code
 
 1. Install the [Ollama extension for VS Code](https://marketplace.visualstudio.com/items?itemName=Ollama.ollama).
-2. Download a model supported by Ollama, for example:
+2. Download a model that supports tool calling, for example:
    ```sh
    ollama pull qwen3.6
    ```
-   Choose a model that fits your machine and supports tool calling. Local model requirements vary; a larger context or model may require more memory.
-3. Open VS Code Chat and select the Ollama model from the model picker.
-4. Start a chat in **Agent** mode and check that the `trading` MCP tools are enabled.
-5. Ask a question such as: “What were the five biggest daily movers on the latest trading day? Which ones were losers?”
+   Choose one that fits your machine's memory. Larger models need more memory, but follow multi-step questions more reliably.
+3. In VS Code Chat, select the Ollama model in the model picker.
+4. Switch to **Agent** mode and check that the `trading` tools are selected in the tools picker.
+5. Ask a question, for example: "What were the five biggest movers on the last trading day? Which ones were losers?"
 
-The MCP server remains a separate .NET process; Ollama supplies the model, while VS Code connects that model to the MCP tools. Local model and tool-calling support can vary by VS Code, extension, and model version. If tools are unavailable, confirm the model is selected in Agent mode and test the MCP connection with [Inspector](02-run-server-and-inspector.md).
+Start with simple questions. Smaller models handle one or two tool calls well, but may lose track of questions that need several in a row, such as the Tillman example in guide 3.
 
-See the [Ollama VS Code guide](https://docs.ollama.com/integrations/vscode) for current version requirements and model setup.
+If the tools don't appear, check the model is selected in Agent mode, then test the server with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector). Support for local models and tool calling varies between VS Code, extension and model versions; see the [Ollama VS Code guide](https://docs.ollama.com/integrations/vscode) for the current requirements.

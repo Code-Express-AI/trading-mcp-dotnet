@@ -117,11 +117,11 @@ You ask in plain English, and the model picks the tools, often several for one q
 
 The guides explain each step and why it works the way it does, and cover testing, troubleshooting and the optional setups.
 
-1. [Start SQL Server and load the synthetic trading data](docs/01-docker-database.md)
+1. [Set up the database, and see how it's locked down](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
 3. [Connect VS Code and Copilot, then ask questions](docs/03-vscode-copilot.md)
 4. Optional: [Deploy the database and MCP server to Azure](docs/04-azure-deployment.md)
-5. Optional: [Use a local LLM from VS Code](docs/05-local-llm.md)
+5. Optional: [Use a local model](docs/05-local-llm.md)
 
 ## Tests
 

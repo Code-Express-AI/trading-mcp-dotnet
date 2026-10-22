@@ -1,21 +1,21 @@
 # 4. Optional: deploy to Azure
 
-This guide outlines the Azure path: host the database in Azure SQL, deploy the MCP server to Azure App Service, and replace local bearer tokens with Microsoft Entra ID authentication. The [Entra setup guide](entra-setup.md) has the detailed app-registration and token steps.
+This guide moves the database to Azure SQL Database, deploys the MCP server to Azure App Service, and replaces the local bearer tokens with Microsoft Entra ID. The [Entra setup guide](entra-setup.md) has the detailed app-registration and token steps.
 
-## Create and prepare Azure SQL
+Everything here fits Azure's free tiers: the [Azure SQL Database free offer](https://learn.microsoft.com/azure/azure-sql/database/free-offer) and the App Service **Free (F1)** plan. The free database is serverless and pauses when idle, so the first connection after a pause can take longer than the default 15 seconds. If you see timeouts, add `Connect Timeout=60` to the connection string.
 
-1. Create an Azure SQL logical server and an empty Azure SQL Database. Configure a firewall rule that allows your development machine to connect while you set it up.
-2. Connect to the new database as its administrator and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for the contained `mcp_reader` user.
-3. Generate the synthetic data from your development machine, connecting `DataGenerator` as a database administrator. The machine's IP must be allowed by the SQL firewall:
+## 1. Create and prepare Azure SQL
+
+1. Create an Azure SQL logical server and an empty database. Add a firewall rule for your own machine's IP address while you set it up.
+2. Connect to the database as its administrator and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. Skip `00_create_database.sql`. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`.
+3. Load the data from your machine, connecting as the administrator:
    ```sh
-   cd DataGenerator
-   dotnet run -- "Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True;TrustServerCertificate=False" --reset
-   cd ..
+   dotnet run --project DataGenerator -- "Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True" --reset
    ```
 
-Use the same `mcp_reader` password in the server's database connection string. Do not use `TrustServerCertificate=True` with Azure SQL.
+Never use `TrustServerCertificate=True` with Azure SQL: Azure has a proper certificate, so leave certificate checking on.
 
-## Deploy the MCP server
+## 2. Deploy the MCP server
 
 Create a Linux App Service using the .NET 10 runtime, then publish the server:
 
@@ -23,32 +23,35 @@ Create a Linux App Service using the .NET 10 runtime, then publish the server:
 dotnet publish McpServer/McpServer.csproj --configuration Release --output ./publish
 ```
 
-Deploy the published output using your preferred App Service deployment method, such as the VS Code Azure App Service extension or a CI/CD pipeline. Configure the App Service settings under **Configuration**:
+Deploy the `publish` folder with your preferred method, such as the VS Code Azure App Service extension or a CI/CD pipeline. Then add these settings under the App Service's **Configuration** (or **Environment variables**):
 
 | Setting | Value |
-|---------|-------|
+|---|---|
 | `Auth__Mode` | `Entra` |
 | `Entra__TenantId` | Your Entra tenant ID |
-| `Entra__ClientId` | The client ID of the server API registration |
-| `ConnectionStrings__Trading` | Azure SQL connection string for `mcp_reader` |
+| `Entra__ClientId` | The client ID of the server's API registration |
+| `ConnectionStrings__Trading` | The Azure SQL connection string for `mcp_reader` |
 | `AllowedHosts` | `<app-name>.azurewebsites.net` (requests for any other host name are rejected) |
 
-In Production, `appsettings.Production.json` also turns on `Audit:FailClosed`: if a tool call can't be written to the audit log, its results aren't returned.
+App Service runs the server in Production, so it never reads `.env`, and `appsettings.Production.json` turns on `Audit:FailClosed`: if a tool call can't be written to the audit log, its results aren't returned.
 
-Treat the database connection string as a secret. For anything beyond a short-lived demo, store it in Azure Key Vault and use a Key Vault reference from App Service configuration. Allow the App Service to reach Azure SQL, preferably using private networking for production; avoid leaving broad SQL firewall access enabled.
+Treat the connection string as a secret. For anything beyond a short-lived demo, keep it in Azure Key Vault and use a Key Vault reference in the App Service settings. Let App Service reach Azure SQL through private networking rather than broad firewall rules.
 
-## Configure Entra ID and test
+## 3. Configure Entra ID and test
 
-Follow [Entra ID authentication for the MCP server](entra-setup.md) to register the API, expose the `mcp.read` scope, configure a client, and obtain a token. The server validates Entra-issued tokens; it does not issue tokens itself.
+Follow [Entra ID authentication for the MCP server](entra-setup.md) to register the API, expose the `mcp.read` scope, set up a client and get a token. The server only validates Entra tokens; it never issues them.
 
-After deployment:
+Then check the deployment:
 
-- Check `https://<app-name>.azurewebsites.net/health`.
-- Use an MCP client that can send an `Authorization: Bearer <token>` header to connect to `https://<app-name>.azurewebsites.net/mcp`.
-- Try a read-only tool call and verify the caller appears in the database audit log.
-- Optionally, turn on automatic digest storage for the ledger (in the Azure portal, under the database's **Ledger** settings). Azure SQL then saves the audit log's hash chain to immutable storage, so even someone with full control of the database server can't quietly rewrite it.
+1. Open `https://<app-name>.azurewebsites.net/health`. It should return `{"status":"ok"}`.
+2. Call a tool with MCP Inspector, using the Entra token:
+   ```sh
+   npx @modelcontextprotocol/inspector --cli https://<app-name>.azurewebsites.net/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info
+   ```
+3. Check the audit log. The `Caller` column now shows the Entra identity instead of a token name.
+4. Optionally, turn on automatic digest storage for the ledger, under the database's **Ledger** settings in the Azure portal. Azure SQL then saves the audit log's hash chain to immutable storage, so even someone with full control of the database server can't quietly rewrite it.
 
-Test your chosen interactive client before relying on it: Entra's OAuth registration flow is not supported by every MCP client. See the limitations and troubleshooting in the [Entra guide](entra-setup.md).
+Not every interactive MCP client can complete Entra's sign-in flow, so test your chosen client before relying on it. See the [limitations in the Entra guide](entra-setup.md#5-what-works-today-and-what-doesnt).
 
 ## Before you go to production
 

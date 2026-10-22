@@ -9,8 +9,7 @@ Client --2. POST /mcp  Authorization: Bearer <JWT>--> MCP server
 MCP server --3. validates signature, issuer, audience, expiry, scope/role--> runs the tool
 ```
 
-Portal paths below are from memory of the Entra admin centre, which gets reorganised from time to time,
-so adjust if a label has moved.
+The Entra admin centre is reorganised from time to time, so if a label below has moved, look for the nearest equivalent.
 
 ## 1. Register the API (the MCP server)
 
@@ -41,7 +40,9 @@ You need at least one client app that gets tokens for the API.
 In the API registration, **Expose an API -> Add a client application**, add Azure CLI's well-known client ID
 `04b07795-8ddb-461a-bbee-02f9e1bf7b46` and tick the `mcp.read` scope (this pre-authorises it). Then:
 
-```bash
+These commands work in PowerShell, macOS and Linux:
+
+```sh
 az login --tenant <tenant-id>
 az account get-access-token --scope api://<api-client-id>/mcp.read --query accessToken -o tsv
 ```
@@ -51,17 +52,7 @@ az account get-access-token --scope api://<api-client-id>/mcp.read --query acces
 2. **Certificates & secrets -> New client secret** (use a certificate in production).
 3. **API permissions -> Add a permission -> My APIs -> Trading MCP Server -> Application permissions -> `Mcp.Read`**,
    then **Grant admin consent**.
-4. Get a token. macOS / Linux:
-
-```bash
-curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=<daemon-client-id>" \
-  -d "client_secret=<daemon-secret>" \
-  -d "scope=api://<api-client-id>/.default"
-```
-
-Windows (PowerShell):
+4. Get a token. Windows (PowerShell):
 
 ```powershell
 $body = @{
@@ -73,34 +64,35 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" -Body $body
 ```
 
+macOS / Linux:
+
+```bash
+curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=<daemon-client-id>" \
+  -d "client_secret=<daemon-secret>" \
+  -d "scope=api://<api-client-id>/.default"
+```
+
 Avoid pasting live tokens into third-party websites. Decode a demo token locally if needed and check:
 `aud` is your API's client ID, `iss` ends in `/v2.0`, and there's either `scp` containing `mcp.read` (user tokens)
 or `roles` containing `Mcp.Read` (service tokens).
 
 ## 3. Configure the server
 
-```bash
-cd McpServer
-dotnet user-secrets set "Auth:Mode" "Entra"
-dotnet user-secrets set "Entra:TenantId" "<tenant-id>"
-dotnet user-secrets set "Entra:ClientId" "<api-client-id>"
-dotnet run --urls http://localhost:5080
+To test Entra locally, from the repository root:
+
+```sh
+dotnet user-secrets set "Auth:Mode" "Entra" --project McpServer
+dotnet user-secrets set "Entra:TenantId" "<tenant-id>" --project McpServer
+dotnet user-secrets set "Entra:ClientId" "<api-client-id>" --project McpServer
+dotnet run --project McpServer
 ```
 
 On App Service these are `Auth__Mode`, `Entra__TenantId` and `Entra__ClientId`.
 Setting `Auth:Mode` back to `StaticTokens` returns to the simple bearer-token mode for local work.
 
 ## 4. Test it
-
-macOS / Linux:
-
-```bash
-# No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
-curl -i -X POST http://localhost:5080/mcp
-
-# The metadata document that tells clients which authorization server to use
-curl -s http://localhost:5080/.well-known/oauth-protected-resource
-```
 
 Windows (PowerShell):
 
@@ -116,7 +108,21 @@ try {
 Invoke-RestMethod -Uri "http://localhost:5080/.well-known/oauth-protected-resource"
 ```
 
-With a valid token, the MCP endpoint answers. Use MCP Inspector or another MCP client with the token as a header.
+macOS / Linux:
+
+```bash
+# No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
+curl -i -X POST http://localhost:5080/mcp
+
+# The metadata document that tells clients which authorization server to use
+curl -s http://localhost:5080/.well-known/oauth-protected-resource
+```
+
+With a valid token, the MCP endpoint answers. For example, with MCP Inspector:
+
+```sh
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info
+```
 
 A token for the wrong audience, an expired token, or a token without `mcp.read` / `Mcp.Read` receives a 401 or 403 response.
 

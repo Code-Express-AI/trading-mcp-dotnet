@@ -1,12 +1,12 @@
 # 3. Ask questions from VS Code and Copilot
 
-This guide connects VS Code to the local MCP server so Copilot Chat can use its read-only trading tools.
+This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English.
 
-Complete [the database setup](01-docker-database.md) and [run the MCP server](02-run-server-and-inspector.md) first. Keep the server running at `http://localhost:5080`.
+Complete [guide 1](01-docker-database.md), and keep the server from [guide 2](02-run-server-and-inspector.md) running at `http://localhost:5080`.
 
-## Add the MCP server to VS Code
+## 1. Add the server to VS Code
 
-In VS Code, open the Command Palette (`Ctrl+Shift+P` on Windows and Linux, `Cmd+Shift+P` on macOS) and run **MCP: Open User Configuration**. Add the following VS Code-format configuration, replacing the existing contents only if you do not need them:
+Open the Command Palette (`Ctrl+Shift+P` on Windows and Linux, `Cmd+Shift+P` on macOS) and run **MCP: Open User Configuration**. Add the `trading` server below. If the file already lists other servers, add `trading` alongside them.
 
 ```json
 {
@@ -30,28 +30,42 @@ In VS Code, open the Command Palette (`Ctrl+Shift+P` on Windows and Linux, `Cmd+
 }
 ```
 
-Using user configuration keeps the token out of the repository. VS Code prompts for it when the server needs the value. Enter the same token configured in .NET user-secrets. For current configuration options, see the [VS Code MCP server documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
+The token isn't written in the file. VS Code asks for it the first time it connects and stores it securely. Enter the `MCP_TOKEN` value from `.env`, or the token you set in user-secrets. Because this is your user configuration, not a file in the repository, nothing secret can be committed by accident. For all the options, see the [VS Code MCP documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
 
-After saving, connect to or restart the `trading` server from VS Code's MCP server controls. This connects VS Code to the already-running .NET service; it does not start that service. If prompted, confirm that you trust the server. Open Copilot Chat in **Agent** mode and confirm that the trading tools are available in the tools picker.
+## 2. Connect
 
-## Try a question
+Save the file, then start the `trading` server from VS Code's MCP server list (or the **Start** link that appears above it in the file). This only connects VS Code to the server that's already running; it doesn't start the .NET app. If VS Code asks whether you trust the server, confirm.
 
-For example:
+Open Copilot Chat, switch it to **Agent** mode, and open the tools picker. The eight trading tools should be listed and selected.
 
-> What were the five biggest daily movers on the latest trading day? Which ones were losers?
+## 3. Ask questions
 
-Other prompts:
+Try these:
 
-- “What data is available, and what is the latest price date?”
-- “Find accounts for a client named MacGyver.”
-- “Summarise this account's positions by market value and unrealised profit or loss.”
+- "What data is available, and what's the latest price date?"
+- "What were the five biggest movers on the last trading day? Which ones were losers?"
+- "How has Brightwater Pharma's share price moved this year?"
+- "Find the accounts for clients called Tillman, and summarise one of their portfolios by sector."
+- "Do any of Tillman's accounts hold yesterday's three biggest losers?"
 
-The available tools only read the curated data exposed by stored procedures; the MCP server does not provide arbitrary SQL or write operations.
+The last two need several tools in a row. Copilot shows each tool call as it makes it, so you can see how it breaks the question down.
 
-If no tools appear, confirm the local server is running, check `/health`, verify the URL and token, and restart the MCP server connection in VS Code. Use [MCP Inspector](02-run-server-and-inspector.md) to distinguish a server/database issue from a VS Code configuration issue.
+Now ask it to change something:
+
+- "Delete all of Carey Tillman's trades."
+
+It can't. None of the tools can change data, and even if one tried, the database login has no permission to.
+
+Copilot may ask you to approve each tool call before it runs. That's VS Code's own safeguard, and a good one to leave switched on.
+
+## Troubleshooting
+
+- **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
+- **401 or "unauthorized" errors:** the token doesn't match. VS Code remembers the token you entered, so to enter it again, change the input's `id` (for example to `trading-mcp-token-2`) in both places in the configuration, then restart the `trading` server.
+- **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
 
 ## Other MCP hosts
 
 The server isn't tied to VS Code. Any MCP host that can connect to a remote (HTTP) server and send an `Authorization` header can use it, with the same URL, `http://localhost:5080/mcp`, and the same token. See your host's documentation for how to add a server.
 
-Next: optional [Azure deployment](04-azure-deployment.md) or [using a local LLM](05-local-llm.md).
+Next: optional [Azure deployment](04-azure-deployment.md) or [using a local model](05-local-llm.md).
