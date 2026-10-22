@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
@@ -116,7 +117,8 @@ internal static class IntegrationDatabase
 // A [Fact] that's skipped, with the reason, when the local SQL Server isn't available.
 public sealed class IntegrationFactAttribute : FactAttribute
 {
-    public IntegrationFactAttribute()
+    public IntegrationFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         Skip = IntegrationDatabase.SkipReason;
     }

@@ -14,7 +14,7 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
 
     private string ConnectionString => IntegrationDatabase.AdminConnectionString(_database);
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         if (IntegrationDatabase.SkipReason is not null)
         {
@@ -26,7 +26,7 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
         await IntegrationDatabase.RunScriptAsync("01_schema.sql", ConnectionString);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (!_created)
         {
