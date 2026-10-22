@@ -1,5 +1,7 @@
 # Secure, read-only MCP server for SQL Server (C# / .NET)
 
+[![build](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml/badge.svg)](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml)
+
 This project lets an AI assistant (e.g. a local or cloud based LLM) query a SQL Server database **without being able to change the database or any of the underlying data**.
 
 - An ASP.NET Core minimal API hosts the MCP server.
