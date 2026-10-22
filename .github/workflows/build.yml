@@ -1,0 +1,42 @@
+# Builds the solution and runs every test, including the integration tests against a real SQL Server
+# in Docker, then fails if any package has a known vulnerability.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build XTests/XTests.csproj
+
+      - name: Start SQL Server and create the database
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait
+          docker compose run --rm db-init
+
+      - name: Load the synthetic data
+        run: dotnet run --project DataGenerator --no-build -- --reset
+
+      - name: Run all tests
+        run: dotnet test XTests/XTests.csproj --no-build
+
+      - name: Check for vulnerable packages
+        run: |
+          for project in DataGenerator/DataGenerator.csproj McpServer/McpServer.csproj XTests/XTests.csproj; do
+            dotnet list "$project" package --vulnerable --include-transitive | tee -a vulnerable.txt
+          done
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then exit 1; fi

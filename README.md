@@ -82,6 +82,8 @@ Run only the integration tests. Start SQL Server and load the data first (guide 
 dotnet test XTests/XTests.csproj --filter 'Category=Integration'
 ```
 
+GitHub Actions runs all the tests, including the integration tests against SQL Server in Docker, on every push, and fails the build if any package has a known vulnerability.
+
 Run all the tests with coverage collection:
 
 ```sh
@@ -97,6 +99,8 @@ In VS Code, the `XTests: Run tests with coverage` task runs the same command. To
 - Sensitive columns are masked, and every tool call is written to an audit table.
 - The audit table is an append-only ledger table: rows can't be changed or deleted, even by `sa`, and SQL Server can verify that nothing has been tampered with.
 - Authentication uses named bearer tokens locally and Microsoft Entra ID in the production path. See [Entra ID setup and client limitations](docs/entra-setup.md).
+- Requests are only accepted for the expected host names, which blocks DNS-rebinding attacks on the local server.
+- Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
 
 ## Tested with
 

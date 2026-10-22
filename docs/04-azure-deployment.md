@@ -31,6 +31,9 @@ Deploy the published output using your preferred App Service deployment method, 
 | `Entra__TenantId` | Your Entra tenant ID |
 | `Entra__ClientId` | The client ID of the server API registration |
 | `ConnectionStrings__Trading` | Azure SQL connection string for `mcp_reader` |
+| `AllowedHosts` | `<app-name>.azurewebsites.net` (requests for any other host name are rejected) |
+
+In Production, `appsettings.Production.json` also turns on `Audit:FailClosed`: if a tool call can't be written to the audit log, its results aren't returned.
 
 Treat the database connection string as a secret. For anything beyond a short-lived demo, store it in Azure Key Vault and use a Key Vault reference from App Service configuration. Allow the App Service to reach Azure SQL, preferably using private networking for production; avoid leaving broad SQL firewall access enabled.
 
@@ -46,3 +49,15 @@ After deployment:
 - Optionally, turn on automatic digest storage for the ledger (in the Azure portal, under the database's **Ledger** settings). Azure SQL then saves the audit log's hash chain to immutable storage, so even someone with full control of the database server can't quietly rewrite it.
 
 Test your chosen interactive client before relying on it: Entra's OAuth registration flow is not supported by every MCP client. See the limitations and troubleshooting in the [Entra guide](entra-setup.md).
+
+## Before you go to production
+
+This project is a demo. Before putting an MCP server like this in front of a real database, work through this list:
+
+- **Limit which rows each caller can see.** Every authenticated caller can currently read every client. Use SQL Server row-level security, with the server setting the caller's identity in `SESSION_CONTEXT`, so each user only sees their own clients.
+- **Decide what data may reach the model.** Tool results go to whichever model the host uses. With a cloud model, client names and holdings leave your boundary. Mask or pseudonymise personal data, leave it out of tool results, or use a local model.
+- **Remove the database password.** Connect to Azure SQL with a managed identity, and keep any remaining secrets in Key Vault.
+- **Use a read-only replica.** Point the server at a readable secondary (`ApplicationIntent=ReadOnly`), so model traffic can't slow down the system the business runs on.
+- **Lock down the network.** HTTPS only, the database on a private endpoint with public access disabled, and the server behind a gateway or IP restrictions.
+- **Ship logs and audit data off the server.** Send logs to Application Insights or Log Analytics. Remember that the audit log records the arguments, such as names searched for, so treat it as sensitive.
+- **Use short-lived tokens.** The local static tokens never expire. Use Entra ID, so tokens expire and access can be revoked centrally.
