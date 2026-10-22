@@ -51,7 +51,7 @@ az account get-access-token --scope api://<api-client-id>/mcp.read --query acces
 2. **Certificates & secrets -> New client secret** (use a certificate in production).
 3. **API permissions -> Add a permission -> My APIs -> Trading MCP Server -> Application permissions -> `Mcp.Read`**,
    then **Grant admin consent**.
-4. Get a token:
+4. Get a token. In Bash:
 
 ```bash
 curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" \
@@ -61,7 +61,19 @@ curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token
   -d "scope=api://<api-client-id>/.default"
 ```
 
-Paste any token into https://jwt.ms to inspect it. Check:
+In PowerShell:
+
+```powershell
+$body = @{
+  grant_type = "client_credentials"
+  client_id = "<daemon-client-id>"
+  client_secret = "<daemon-secret>"
+  scope = "api://<api-client-id>/.default"
+}
+Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" -Body $body
+```
+
+Avoid pasting live tokens into third-party websites. Decode a demo token locally if needed and check:
 `aud` is your API's client ID, `iss` ends in `/v2.0`, and there's either `scp` containing `mcp.read` (user tokens)
 or `roles` containing `Mcp.Read` (service tokens).
 
@@ -80,17 +92,33 @@ Setting `Auth:Mode` back to `StaticTokens` returns to the simple bearer-token mo
 
 ## 4. Test it (a good on-camera sequence)
 
+In Bash:
+
 ```bash
 # No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
 curl -i -X POST http://localhost:5080/mcp
 
 # The metadata document that tells clients which authorization server to use
 curl -s http://localhost:5080/.well-known/oauth-protected-resource
-
-# Valid token -> the MCP endpoint answers (use MCP Inspector or Claude Code with the token as a header)
-
-# Token for the wrong audience, an expired token, or a token without mcp.read / Mcp.Read -> 401 / 403
 ```
+
+In PowerShell:
+
+```powershell
+# No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
+try {
+  Invoke-WebRequest -Method Post -Uri "http://localhost:5080/mcp"
+} catch {
+  $_.Exception.Response.StatusCode
+}
+
+# The metadata document that tells clients which authorization server to use
+Invoke-RestMethod -Uri "http://localhost:5080/.well-known/oauth-protected-resource"
+```
+
+With a valid token, the MCP endpoint answers. Use MCP Inspector or another MCP client with the token as a header.
+
+A token for the wrong audience, an expired token, or a token without `mcp.read` / `Mcp.Read` receives a 401 or 403 response.
 
 Then run a few tool calls and show the audit log. The `Caller` column now holds the Entra identity, for example
 `alice@contoso.com [oid:...]` or `app:<client-id> [oid:...]`:
