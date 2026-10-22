@@ -27,24 +27,33 @@ dotnet run --project DataGenerator -- --reset                        # load data
 dotnet run --project McpServer                                       # run the server (Development: reads .env)
 ```
 
-In VS Code, the `XTests: Run tests with coverage` task runs the coverage command. To see coverage in the editor, install the recommended Coverage Gutters extension and run **Coverage Gutters: Display Coverage** after the tests finish.
-
 ## How a tool call works
 
-Each tool is one line: `TradingTools` → `IAuditService.RunAsync` → `ITradingRepository` → a stored procedure in the `mcp` schema.
+Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradingRepository` → one stored procedure in the `mcp` schema.
 
 To add a tool:
 
 1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`. Return fixed columns, enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
 2. Add the method to `ITradingRepository` and `TradingRepository`, as a single `QueryAsync` call.
 3. Add the tool to `McpServer/Tools/TradingTools.cs` with `[McpServerTool(Name = "snake_case", ReadOnly = true)]` and a clear `[Description]`. The model reads the descriptions to decide which tool to call, so they matter. Check the arguments at the top of the audit lambda with `ToolArguments.Require(...)`, with messages that tell the model what to do instead. Never let a bad argument quietly return an empty result.
-4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`. Test classes are named `When_<Something>_Is_<Done>` with the subject split into words (`When_Data_Loader_Is_Run`), and test methods are `it_should_<outcome>`. Integration tests carry `[Trait("Category", "Integration")]` and use `[IntegrationFact]`, which skips them when SQL Server isn't running.
+4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`.
+
+## Tests
+
+- Test classes are named `When_<Something>_Is_<Done>`, with the subject split into words (`When_Data_Loader_Is_Run`). Test methods are `it_should_<outcome>`.
+- Integration tests carry `[Trait("Category", "Integration")]` and use `[IntegrationFact]`, which skips them when SQL Server isn't running.
+- xUnit v3 runs on the classic VSTest runner (`IsTestingPlatformApplication=false` in `XTests.csproj`). Don't switch to Microsoft Testing Platform: it breaks `dotnet test`, the `--filter` syntax, coverage and CI.
+
+## Gotchas
+
+- Dapper can't map SQL `DATE` columns to `DateOnly` record parameters, so the models use `DateTime`.
 
 ## Security rules (do not weaken)
 
 - The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on the `mcp` schema (`03_procedures.sql`), nothing else.
 - Never add dynamic SQL, raw-query tools, or write operations on business tables.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
+- The server reads `.env` only in Development, and only for settings not configured elsewhere. Never let it read `.env` in Production.
 - Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`, an append-only ledger table. Never make it updatable.
 
 ## Docs conventions
@@ -52,4 +61,7 @@ To add a tool:
 - Readers are mid-level and senior developers following the guides on their own machines. Most are probably on Windows.
 - Commands must work on Windows (PowerShell), macOS and Linux. Where they differ, show both, labelled `Windows (PowerShell):` first and `macOS / Linux:` second. Shell-neutral blocks use the `sh` fence.
 - Commands must run on Windows PowerShell 5.1, not just PowerShell 7.
+- The README Quick start and the guides use identical commands, run from the repository root with `--project`.
+- Node.js is optional: it's only needed for MCP Inspector, and the docs must say so.
+- Headings use sentence case.
 - Keep the data synthetic. No real companies, clients or prices.
