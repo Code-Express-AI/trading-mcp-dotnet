@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using TradingMcp;
@@ -26,6 +28,68 @@ public class When_Mcp_Server_Application_Is_Built
         Assert.Equal(
             "ConnectionStrings:Trading isn't set. See docs/02-run-server-and-inspector.md for the user-secrets commands.",
             exception.Message);
+    }
+
+    [Fact]
+    public async Task it_should_build_the_connection_string_from_the_env_file_in_development()
+    {
+        using var directory = new XTests.DataGenerator.TempDirectory();
+        directory.WriteEnvFile("MCP_READER_PASSWORD=Reader-From-Env-123");
+
+        await using var application = McpServerApplication.Build(
+            ["--environment=Development", $"--contentRoot={directory.Path}", Token]);
+        var connection = new SqlConnectionStringBuilder(application.Configuration.GetConnectionString("Trading"));
+
+        Assert.Equal("localhost,1433", connection.DataSource);
+        Assert.Equal("TradingDemo", connection.InitialCatalog);
+        Assert.Equal("mcp_reader", connection.UserID);
+        Assert.Equal("Reader-From-Env-123", connection.Password);
+    }
+
+    [Fact]
+    public async Task it_should_prefer_a_configured_connection_string_over_the_env_file()
+    {
+        using var directory = new XTests.DataGenerator.TempDirectory();
+        directory.WriteEnvFile("MCP_READER_PASSWORD=Reader-From-Env-123");
+
+        await using var application = McpServerApplication.Build(
+            ["--environment=Development", $"--contentRoot={directory.Path}", ConnectionString, Token]);
+
+        Assert.Equal("Server=localhost;Database=TradingDemo;", application.Configuration.GetConnectionString("Trading"));
+    }
+
+    [Fact]
+    public async Task it_should_take_the_bearer_token_from_the_env_file_in_development()
+    {
+        using var directory = new XTests.DataGenerator.TempDirectory();
+        directory.WriteEnvFile("MCP_READER_PASSWORD=Reader-From-Env-123\nMCP_TOKEN=token-from-env-file-with-more-than-32-characters");
+
+        await using var application = McpServerApplication.Build(["--environment=Development", $"--contentRoot={directory.Path}"]);
+
+        Assert.Equal("local", Assert.Single(application.Services.GetRequiredService<BearerToken[]>()).Name);
+    }
+
+    [Fact]
+    public async Task it_should_prefer_configured_tokens_over_the_env_file()
+    {
+        using var directory = new XTests.DataGenerator.TempDirectory();
+        directory.WriteEnvFile("MCP_READER_PASSWORD=Reader-From-Env-123\nMCP_TOKEN=token-from-env-file-with-more-than-32-characters");
+
+        await using var application = McpServerApplication.Build(["--environment=Development", $"--contentRoot={directory.Path}", Token]);
+
+        Assert.Equal("inspector", Assert.Single(application.Services.GetRequiredService<BearerToken[]>()).Name);
+    }
+
+    [Fact]
+    public void it_should_never_read_the_env_file_in_production()
+    {
+        using var directory = new XTests.DataGenerator.TempDirectory();
+        directory.WriteEnvFile("MCP_READER_PASSWORD=Reader-From-Env-123");
+
+        var exception = Assert.Throws<ServerConfigurationException>(() =>
+            McpServerApplication.Build(["--environment=Production", $"--contentRoot={directory.Path}", Token]));
+
+        Assert.StartsWith("ConnectionStrings:Trading isn't set.", exception.Message);
     }
 
     [Fact]

@@ -23,9 +23,11 @@ dotnet test XTests/XTests.csproj                                     # run the t
 dotnet test XTests/XTests.csproj --filter 'Category!=Integration'   # unit tests only, no Docker needed
 dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"     # with coverage
 docker compose up -d --wait && docker compose run --rm db-init       # local database
-cd DataGenerator && dotnet run -- --reset                            # load data (Docker: reads .env)
-cd McpServer && dotnet run --urls http://localhost:5080              # run the server
+dotnet run --project DataGenerator -- --reset                        # load data (Docker: reads .env)
+dotnet run --project McpServer                                       # run the server (Development: reads .env)
 ```
+
+In VS Code, the `XTests: Run tests with coverage` task runs the coverage command. To see coverage in the editor, install the recommended Coverage Gutters extension and run **Coverage Gutters: Display Coverage** after the tests finish.
 
 ## How a tool call works
 

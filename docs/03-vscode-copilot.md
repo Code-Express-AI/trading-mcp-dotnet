@@ -50,4 +50,8 @@ The available tools only read the curated data exposed by stored procedures; the
 
 If no tools appear, confirm the local server is running, check `/health`, verify the URL and token, and restart the MCP server connection in VS Code. Use [MCP Inspector](02-run-server-and-inspector.md) to distinguish a server/database issue from a VS Code configuration issue.
 
+## Other MCP hosts
+
+The server isn't tied to VS Code. Any MCP host that can connect to a remote (HTTP) server and send an `Authorization` header can use it, with the same URL, `http://localhost:5080/mcp`, and the same token. See your host's documentation for how to add a server.
+
 Next: optional [Azure deployment](04-azure-deployment.md) or [using a local LLM](05-local-llm.md).

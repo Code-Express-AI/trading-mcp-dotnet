@@ -1,57 +1,121 @@
-# Secure, read-only MCP server for SQL Server (C# / .NET)
+# Secure, read-only MCP server for SQL Server: a real-world example in C# / .NET
 
 [![build](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml/badge.svg)](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml)
 
-This project lets an AI assistant (e.g. a local or cloud based LLM) query a SQL Server database **without being able to change the database or any of the underlying data**.
+### Project purpose
 
-- An ASP.NET Core minimal API hosts the MCP server.
-- The server calls stored procedures through Dapper.
-- The database login has only the permissions required to run those stored procedures.
-- Local development uses named bearer tokens; production can use Microsoft Entra ID.
-- Secrets are kept out of source control. Local development uses .NET user-secrets and Docker's ignored `.env` file.
+This project connects AI assistants, such as GitHub Copilot or Claude, to an existing SQL Server database (here, a fictional bank's stock trading system) using MCP. They can query the data, using a cloud or local model, but **can't change the database or any of its data**.
 
-> **All data is synthetic.** Companies, clients, and prices are invented. This project is for educational purposes only and is not production-ready.
+![Asking Copilot about the trading data](demo.gif)
 
-## Architecture
+### What is MCP?
 
-```mermaid
-flowchart LR
-    U([You]) --> H["Host<br/>(VS Code or similar)<br/>+ LLM"]
-    H -- "MCP over HTTP<br/>+ bearer token" --> S["MCP server<br/>(.NET minimal API)<br/>auth, audit, rate limit"]
-    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures")]
-```
+MCP (Model Context Protocol) is the open standard that lets AI assistants discover and call tools in your own systems. In .NET, turning a method into a tool takes one attribute, `[McpServerTool]`. Making it safe to point at a real database is the hard part, and that's what this project shows.
 
-The model decides which tool to call; the host makes the call and returns the result. The server only runs stored procedures, with a database login that has no table permissions.
+### What you'll learn
 
-## Videos
+How to:
 
-| # | Video |
-|---|-------|
-| 1 | Introduction and local demo |
-| 2 | Set up SQL Server with Docker and load the sample data |
-| 3 | Run the MCP server and ask questions from VS Code |
+- **Build a real MCP server:** eight read-only tools, with auditing, rate limiting and tests.
+- **Lock it down with the principle of least privilege (PoLP):** the model can only call fixed tools, the database only runs stored procedures, and the audit log can't be changed, even by `sa`.
 
-Video links will be added as episodes are published. Azure deployment and using a local LLM are optional follow-up topics.
+### Try it for free
 
-## Prerequisites
+Everything runs on your own machine. You'll need:
 
-- [.NET SDK 10](https://dotnet.microsoft.com/download)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (on Windows, use the default WSL 2 backend)
-- [Node.js and npm](https://nodejs.org/) (for MCP Inspector; testing MCP server only)
-- [VS Code](https://code.visualstudio.com/) and GitHub Copilot Chat (for the VS Code guide)
 - [Git](https://git-scm.com/)
-- An Azure account, only for the optional deployment guide
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (on Windows, use the default WSL 2 backend)
+- [VS Code](https://code.visualstudio.com/) with [GitHub Copilot](https://github.com/features/copilot) (the free tier is enough)
+- [Node.js](https://nodejs.org/) (optional: only needed to test the server with MCP Inspector)
+- An [Azure account](https://azure.microsoft.com/free/) (optional: only for the Azure deployment guide)
 
-## Get the code
+Everything above is free for personal use: SQL Server runs as the free Developer edition in Docker, and the optional Azure deployment fits Azure's free tiers for App Service and Azure SQL Database.
+
+## Quick start
+
+These commands work unchanged in PowerShell, macOS and Linux. After step 1, run everything from the repository root. For an explanation of each step, see the [step-by-step guides](#step-by-step-guides), which also cover troubleshooting.
+
+**1. Get the code:**
 
 ```sh
 git clone https://github.com/Code-Express-AI/trading-mcp-dotnet.git
 cd trading-mcp-dotnet
 ```
 
-## Quick start guides
+**2. Create your settings.** Copy the example file, then change the two passwords and the token in `.env`. Open it in VS Code: files starting with a dot are hidden in Finder and Explorer.
 
-Follow the first three guides in order for the complete local walkthrough. The commands work on Windows (PowerShell), macOS, and Linux. Where a step differs, the guide shows both versions.
+```sh
+cp .env.example .env
+```
+
+**3. Start the database and load the data:**
+
+```sh
+docker compose up -d --wait
+docker compose run --rm db-init
+dotnet run --project DataGenerator
+```
+
+**4. Run the MCP server.** It reads its settings from `.env`:
+
+```sh
+dotnet run --project McpServer
+```
+
+**5. Connect.** In a second terminal, run `npx @modelcontextprotocol/inspector`, choose **Streamable HTTP**, enter `http://localhost:5080/mcp`, and add the header `Authorization: Bearer <token>`, using the `MCP_TOKEN` value from `.env`. To use Copilot instead, see [guide 3](docs/03-vscode-copilot.md).
+
+## Videos
+
+| # | Video | Guide |
+|---|-------|-------|
+| 1 | See it in action: Copilot answers questions from the database, and can't delete anything | |
+| 2 | Set up SQL Server in Docker, and the database security behind it | [Guide 1](docs/01-docker-database.md) |
+| 3 | Test the server with MCP Inspector, then connect Copilot | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-vscode-copilot.md) |
+
+Video links will be added as episodes are published. Deploying to Azure and running with a local model may follow, depending on viewer demand.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U([You]) --> H["Host<br/>(VS Code + Copilot)<br/>+ LLM"]
+    H -- "MCP over HTTP<br/>+ bearer token" --> S["MCP server<br/>(.NET minimal API)<br/>auth, audit, rate limit"]
+    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · masking<br/>ledger audit log")]
+```
+
+Many MCP database examples give the model a tool that runs any SQL it writes. This one doesn't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something else, the server and the database refuse. And if it makes too many calls in quick succession, a rate limit stops it.
+
+- **Server:** ASP.NET Core minimal API and Dapper
+- **Database:** SQL Server, accessed only through stored procedures
+- **Authentication:** named bearer tokens locally, Microsoft Entra ID in production
+- **Secrets:** .NET user-secrets and the git-ignored `.env` file, never in source control
+
+## The tools
+
+| Tool | Example question |
+|---|---|
+| `get_dataset_info` | What data is there, and what's the latest price date? |
+| `search_instruments` | Which pharma companies are listed? |
+| `get_price_history` | How has Brightwater Pharma's share price moved this year? |
+| `get_top_movers` | What were the biggest movers on the last trading day? |
+| `find_accounts` | Find the accounts for a client called Tillman. |
+| `list_trades` | What did that account trade last month? |
+| `get_positions` | What does that account hold, and is it up or down? |
+| `get_portfolio_summary` | Summarise that account's portfolio by sector. |
+
+You ask in plain English, and the model picks the tools, often several for one question. For example, "Do any of Tillman's accounts hold yesterday's three biggest losers?" uses `find_accounts`, `get_top_movers` and `get_positions`.
+
+## Where to look in the code
+
+- [TradingTools.cs](McpServer/Tools/TradingTools.cs): the eight tools, their descriptions and argument checks
+- [03_procedures.sql](sql/03_procedures.sql): the stored procedures, the security boundary
+- [AuditService.cs](McpServer/Audit/AuditService.cs): auditing, and errors written for the model
+- [McpServerApplication.cs](McpServer/McpServerApplication.cs): the whole server, set up on one page
+
+## Step-by-step guides
+
+The guides explain each step and why it works the way it does, and cover testing, troubleshooting and the optional setups.
 
 1. [Start SQL Server and load the synthetic trading data](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
@@ -59,50 +123,30 @@ Follow the first three guides in order for the complete local walkthrough. The c
 4. Optional: [Deploy the database and MCP server to Azure](docs/04-azure-deployment.md)
 5. Optional: [Use a local LLM from VS Code](docs/05-local-llm.md)
 
-## Tests and coverage
+## Tests
 
-The `XTests` project has two kinds of test:
-
-- **Unit tests** check the logic on its own: option parsing, data generation, tool argument checks, authentication and auditing. They need nothing installed and run in under a second.
-- **Integration tests** run against the local Docker SQL Server. They load data into a throwaway database, call every stored procedure as `mcp_reader`, and prove that `mcp_reader` can't read or change the tables directly and that nobody, not even `sa`, can change the audit log. If SQL Server isn't running, they're skipped rather than failed.
-
-Run all the tests:
+Unit tests need nothing installed. Integration tests run against the local Docker SQL Server and prove the security holds: the MCP login can't read or change the tables directly, and nobody, not even `sa`, can change the audit log. If SQL Server isn't running, they're skipped. GitHub Actions runs every test on every push.
 
 ```sh
-dotnet test XTests/XTests.csproj
+dotnet test XTests/XTests.csproj                                     # all tests
+dotnet test XTests/XTests.csproj --filter 'Category!=Integration'   # unit tests only
+dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"     # with coverage
 ```
-
-Run only the unit tests:
-
-```sh
-dotnet test XTests/XTests.csproj --filter 'Category!=Integration'
-```
-
-Run only the integration tests. Start SQL Server and load the data first (guide 1):
-
-```sh
-dotnet test XTests/XTests.csproj --filter 'Category=Integration'
-```
-
-GitHub Actions runs all the tests, including the integration tests against SQL Server in Docker, on every push, and fails the build if any package has a known vulnerability.
-
-Run all the tests with coverage collection:
-
-```sh
-dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"
-```
-
-In VS Code, the `XTests: Run tests with coverage` task runs the same command. To view coverage in the editor, install the recommended Coverage Gutters extension and run **Coverage Gutters: Display Coverage** after the tests complete.
 
 ## Security design
 
-- The MCP database user has **no table permissions**, only `EXECUTE` on a fixed set of stored procedures.
-- Procedures return fixed columns with hard row limits and use no dynamic SQL.
-- Sensitive columns are masked, and every tool call is written to an audit table.
-- The audit table is an append-only ledger table: rows can't be changed or deleted, even by `sa`, and SQL Server can verify that nothing has been tampered with.
-- Authentication uses named bearer tokens locally and Microsoft Entra ID in the production path. See [Entra ID setup and client limitations](docs/entra-setup.md).
-- Requests are only accepted for the expected host names, which blocks DNS-rebinding attacks on the local server.
-- Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
+Each layer grants only what's needed, and holds even if the one above it fails.
+
+| Layer | Protection |
+|---|---|
+| Who can call | Named bearer tokens locally, [Microsoft Entra ID](docs/entra-setup.md) in production. Only the expected host names are accepted, which blocks DNS-rebinding attacks |
+| How often | A rate limit for each caller |
+| What they can ask | Eight fixed, read-only tools, with every argument checked |
+| What the database allows | `EXECUTE` on the stored procedures and nothing else: `DENY` on every table, fixed columns, row limits, no dynamic SQL |
+| What leaks | Account numbers and emails are masked, and database errors never reach the model |
+| What's recorded | Every call, in an append-only ledger table that even `sa` can't change, and that SQL Server can verify hasn't been tampered with |
+
+Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
 
 ## Tested with
 
@@ -113,7 +157,7 @@ In VS Code, the `XTests: Run tests with coverage` task runs the same command. To
 | SQL Server container | 2022-latest | 22-Oct-2026 |
 | Host / model | VS Code / Copilot | 15-Oct-2026 |
 
-The MCP SDK and its authorization support are changing quickly, so check the repository's issues for known problems.
+The MCP SDK and its authorization support are changing quickly. If something doesn't work, check the [C# SDK's issues](https://github.com/modelcontextprotocol/csharp-sdk/issues) for known problems.
 
 ## Licence
 

@@ -13,6 +13,7 @@ internal static class McpServerApplication
     {
         var builder = WebApplication.CreateBuilder(args);
         var configuration = builder.Configuration;
+        var envFilePath = UseEnvFileInDevelopment(builder);
         var connectionString = RequireConnectionString(configuration);
         var useEntra = UsesEntraAuthentication(configuration);
 
@@ -34,6 +35,10 @@ internal static class McpServerApplication
 
         var application = builder.Build();
         application.Logger.LogInformation("Authentication mode: {Mode}", useEntra ? "Entra" : "StaticTokens");
+        if (envFilePath is not null)
+        {
+            application.Logger.LogInformation("Using settings from {Path}", envFilePath);
+        }
 
         // Anonymous, so a hosting platform can check the server is up. It doesn't touch the database.
         application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
@@ -58,6 +63,40 @@ internal static class McpServerApplication
         }
 
         return application;
+    }
+
+    // Local walkthrough only: settings that aren't configured come from the Docker setup's .env file.
+    // Anything set in user-secrets or the environment always wins.
+    private static string? UseEnvFileInDevelopment(WebApplicationBuilder builder)
+    {
+        if (!builder.Environment.IsDevelopment())
+        {
+            return null;
+        }
+
+        var values = EnvFile.TryRead(builder.Environment.ContentRootPath, out var path);
+        if (values is null)
+        {
+            return null;
+        }
+
+        var configuration = builder.Configuration;
+        var used = false;
+        if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("Trading"))
+            && values.GetValueOrDefault("MCP_READER_PASSWORD") is { Length: > 0 } password)
+        {
+            configuration["ConnectionStrings:Trading"] = EnvFile.BuildReaderConnectionString(password);
+            used = true;
+        }
+
+        if (!configuration.GetSection("Mcp:Tokens").GetChildren().Any()
+            && values.GetValueOrDefault("MCP_TOKEN") is { Length: > 0 } token)
+        {
+            configuration["Mcp:Tokens:local"] = token;
+            used = true;
+        }
+
+        return used ? path : null;
     }
 
     private static string RequireConnectionString(IConfiguration configuration)

@@ -36,7 +36,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
     [Description("Daily open/high/low/close/volume for one ticker, oldest first. " +
                  "Returns at most the 250 most recent trading days inside the requested range.")]
     public Task<IReadOnlyList<Price>> GetPriceHistory(
-        [Description("Exact ticker, e.g. 'MARP'. Use search_instruments if unsure.")] string ticker,
+        [Description("Exact ticker, e.g. 'BRIP'. Use search_instruments if unsure.")] string ticker,
         [Description("Start date, yyyy-MM-dd. Optional.")] DateOnly? from = null,
         [Description("End date, yyyy-MM-dd. Optional.")] DateOnly? to = null,
         CancellationToken ct = default) =>
@@ -64,11 +64,11 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
     [Description("Finds client accounts by (part of) the client's name. Returns at most 25. " +
                  "Account numbers are masked for privacy, so use the returned accountId in the other tools.")]
     public Task<IReadOnlyList<Account>> FindAccounts(
-        [Description("At least 2 characters of the client's name, e.g. 'Smith'.")] string name,
+        [Description("At least 2 characters of the client's name, e.g. 'Tillman'.")] string name,
         CancellationToken ct = default) =>
         audit.RunAsync("find_accounts", new { name }, () =>
         {
-            ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Smith'.");
+            ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Tillman'.");
             return repo.FindAccounts(name!, ct);
         });
 
