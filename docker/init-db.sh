@@ -42,7 +42,7 @@ sed "s|<<replace-with-a-long-random-password>>|${MCP_READER_PASSWORD}|" /sql/02_
 run -d "$DB" -i /tmp/02_security.sql
 rm -f /tmp/02_security.sql
 
-# STAGE=2 stops after the security layer-1 script, so you can run 03_procedures.sql by hand (used in video 2).
+# STAGE=2 stops after the security layer-1 script, so you can run 03_procedures.sql by hand.
 if [ "${STAGE:-3}" -ge 3 ]; then
   echo "Running 03_procedures.sql..."
   run -d "$DB" -i /sql/03_procedures.sql

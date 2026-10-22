@@ -14,7 +14,7 @@ GO
 
 CREATE USER mcp_reader WITH PASSWORD = '<<replace-with-a-long-random-password>>';
 
--- LAYER 1 (video 2, first half): read everything in the trading schema (tables and views).
+-- LAYER 1: read everything in the trading schema (tables and views).
 -- 03_procedures.sql later REVOKES this and leaves only EXECUTE on the mcp procedures (layer 2).
 GRANT SELECT ON SCHEMA::trading TO mcp_reader;
 

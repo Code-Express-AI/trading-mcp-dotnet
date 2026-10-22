@@ -105,7 +105,7 @@ GO
 
 /* Net holdings per account/instrument, derived from trades.
    AvgBuyPrice is deliberately simple (average of BUY prices). Real systems
-   track tax lots / FIFO - a good "what I simplified" talking point. */
+   track tax lots / FIFO; this demo keeps it simple. */
 CREATE VIEW trading.v_Positions AS
 SELECT  t.AccountId,
         t.InstrumentId,

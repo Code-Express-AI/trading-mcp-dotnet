@@ -13,16 +13,20 @@ cd McpServer
 dotnet user-secrets set "ConnectionStrings:Trading" "Server=localhost,1433;Database=TradingDemo;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True"
 ```
 
-Create a random token of at least 32 characters. For example, generate one with:
+Create a random token of at least 32 characters.
+
+Windows (PowerShell):
+
+```powershell
+$bytes = [byte[]]::new(32)
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+-join ($bytes | ForEach-Object { $_.ToString("x2") })
+```
+
+macOS / Linux:
 
 ```bash
 openssl rand -hex 32
-```
-
-Or, in PowerShell:
-
-```powershell
-[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 ```
 
 Save the generated value temporarily in a password manager or other secure place, then configure it as a .NET user secret:

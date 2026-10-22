@@ -51,7 +51,7 @@ az account get-access-token --scope api://<api-client-id>/mcp.read --query acces
 2. **Certificates & secrets -> New client secret** (use a certificate in production).
 3. **API permissions -> Add a permission -> My APIs -> Trading MCP Server -> Application permissions -> `Mcp.Read`**,
    then **Grant admin consent**.
-4. Get a token. In Bash:
+4. Get a token. macOS / Linux:
 
 ```bash
 curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" \
@@ -61,7 +61,7 @@ curl -s -X POST "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token
   -d "scope=api://<api-client-id>/.default"
 ```
 
-In PowerShell:
+Windows (PowerShell):
 
 ```powershell
 $body = @{
@@ -90,9 +90,9 @@ dotnet run --urls http://localhost:5080
 On App Service these are `Auth__Mode`, `Entra__TenantId` and `Entra__ClientId`.
 Setting `Auth:Mode` back to `StaticTokens` returns to the simple bearer-token mode for local work.
 
-## 4. Test it (a good on-camera sequence)
+## 4. Test it
 
-In Bash:
+macOS / Linux:
 
 ```bash
 # No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
@@ -102,7 +102,7 @@ curl -i -X POST http://localhost:5080/mcp
 curl -s http://localhost:5080/.well-known/oauth-protected-resource
 ```
 
-In PowerShell:
+Windows (PowerShell):
 
 ```powershell
 # No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
@@ -120,7 +120,7 @@ With a valid token, the MCP endpoint answers. Use MCP Inspector or another MCP c
 
 A token for the wrong audience, an expired token, or a token without `mcp.read` / `Mcp.Read` receives a 401 or 403 response.
 
-Then run a few tool calls and show the audit log. The `Caller` column now holds the Entra identity, for example
+Then run a few tool calls and check the audit log. The `Caller` column now holds the Entra identity, for example
 `alice@contoso.com [oid:...]` or `app:<client-id> [oid:...]`:
 
 ```sql
@@ -142,9 +142,9 @@ with a client ID where DCR isn't available. What that means in practice:
 - Some clients send an RFC 8707 `resource` parameter, which the Entra v2.0 endpoint has been reported to reject
   (`AADSTS901002`).
 - I found at least one report of Claude's custom connectors failing against Entra for these reasons.
-  **Test each client you plan to show before you promise it works on camera.**
+  **Test each client you plan to use before relying on it.**
 - A common workaround is an authorization gateway in front of the server that handles client registration and
-  token exchange. That's a good topic for a follow-up episode.
+  token exchange.
 
 ## 6. Troubleshooting
 

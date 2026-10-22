@@ -6,7 +6,7 @@ Complete [the database setup](01-docker-database.md) and [run the MCP server](02
 
 ## Add the MCP server to VS Code
 
-In VS Code, open the Command Palette and run **MCP: Open User Configuration**. Add the following VS Code-format configuration, replacing the existing contents only if you do not need them:
+In VS Code, open the Command Palette (`Ctrl+Shift+P` on Windows and Linux, `Cmd+Shift+P` on macOS) and run **MCP: Open User Configuration**. Add the following VS Code-format configuration, replacing the existing contents only if you do not need them:
 
 ```json
 {

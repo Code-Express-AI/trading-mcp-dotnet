@@ -1,14 +1,14 @@
 # Secure, read-only MCP server for SQL Server (C# / .NET)
 
-This project lets an AI assistant query a SQL Server database **without being able to change the database or its data**.
+This project lets an AI assistant (e.g. a local or cloud based LLM) query a SQL Server database **without being able to change the database or any of the underlying data**.
 
 - An ASP.NET Core minimal API hosts the MCP server.
 - The server calls stored procedures through Dapper.
-- The database login has only the permissions required to run those procedures.
+- The database login has only the permissions required to run those stored procedures.
 - Local development uses named bearer tokens; production can use Microsoft Entra ID.
 - Secrets are kept out of source control. Local development uses .NET user-secrets and Docker's ignored `.env` file.
 
-> **All data is synthetic.** Companies, clients, and prices are invented. This project is educational and is not production-ready.
+> **All data is synthetic.** Companies, clients, and prices are invented. This project is for educational purposes only and is not production-ready.
 
 ## Architecture
 
@@ -34,15 +34,22 @@ Video links will be added as episodes are published. Azure deployment and using 
 ## Prerequisites
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download)
-- [Docker](https://www.docker.com/products/docker-desktop/)
-- [Node.js and npm](https://nodejs.org/) (for MCP Inspector)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (on Windows, use the default WSL 2 backend)
+- [Node.js and npm](https://nodejs.org/) (for MCP Inspector; testing MCP server only)
 - [VS Code](https://code.visualstudio.com/) and GitHub Copilot Chat (for the VS Code guide)
 - [Git](https://git-scm.com/)
 - An Azure account, only for the optional deployment guide
 
+## Get the code
+
+```sh
+git clone https://github.com/Code-Express-AI/trading-mcp-dotnet.git
+cd trading-mcp-dotnet
+```
+
 ## Quick start guides
 
-Follow the first three guides in order for the complete local walkthrough. Commands are intended to work in Bash and PowerShell; the database guide calls out the small shell-specific differences.
+Follow the first three guides in order for the complete local walkthrough. The commands work on Windows (PowerShell), macOS, and Linux. Where a step differs, the guide shows both versions.
 
 1. [Start SQL Server and load the synthetic trading data](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
@@ -81,5 +88,3 @@ The MCP SDK and its authorization support are changing quickly, so check the rep
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
-
-[![build](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml/badge.svg)](https://github.com/Code-Express-AI/trading-mcp-dotnet/actions/workflows/build.yml)

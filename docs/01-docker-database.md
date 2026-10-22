@@ -4,24 +4,26 @@ This guide starts the local SQL Server container, creates the trading database, 
 
 ## Prerequisites
 
-- Docker Desktop with Docker Compose
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/), which includes Docker Compose. Make sure it is running before you start.
 - [.NET SDK 10](https://dotnet.microsoft.com/download)
 
 ## Start the database with Docker
 
-From the repository root, copy the sample environment file:
+From the repository root, copy the sample environment file.
 
-```bash
-cp .env.example .env
-```
-
-In PowerShell, use:
+Windows (PowerShell):
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Edit `.env` and change both `SA_PASSWORD` and `MCP_READER_PASSWORD`. SQL Server requires strong passwords; follow the constraints noted in `.env.example`. Keep this file local: it is ignored by Git.
+macOS / Linux:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` in VS Code or any text editor and change both `SA_PASSWORD` and `MCP_READER_PASSWORD`. SQL Server requires strong passwords; follow the constraints noted in `.env.example`. Keep this file local: it is ignored by Git.
 
 Start SQL Server and initialize its database, schema, security, and stored procedures:
 
@@ -64,6 +66,8 @@ Use a connection string appropriate for your SQL Server. `TrustServerCertificate
 docker compose down       # stop SQL Server; keep the database volume
 docker compose down -v    # stop SQL Server and delete the database volume
 ```
+
+On Windows, if SQL Server or SQL Server Express is already installed, it may already be using port 1433 and the container will fail to start. Stop that SQL Server service, then run `docker compose up -d` again.
 
 On Apple Silicon, if the SQL Server container does not start, check the current SQL Server container guidance and the commented `platform: linux/amd64` option in `docker-compose.yml`. Emulation can be slower.
 
