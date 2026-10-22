@@ -2,8 +2,8 @@
 # Nothing in this file is deployed to Azure: in the cloud you create an Azure SQL Database in the
 # portal and run the same SQL scripts against it.
 #
-#   docker compose up -d                   start SQL Server (waits until it is healthy)
-#   docker compose run --rm db-init        create the database, run 01/02/03 SQL scripts
+#   docker compose up -d --wait            start SQL Server and wait until it's healthy
+#   docker compose run --rm db-init        create the database and run the SQL scripts (00 to 03)
 #   docker compose down                    stop (data is kept in the named volume)
 #   docker compose down -v                 stop AND delete all data
 
@@ -11,16 +11,14 @@ name: trading-mcp
 
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest   # check for a newer tag if you like
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: trading-sqlserver
-    # Apple Silicon: if the container won't start natively, uncomment the next line to run it
-    # under x64 emulation (slower). Check Microsoft's current guidance for ARM support.
-    # platform: linux/amd64
+    # SQL Server only ships x64 images. On Apple Silicon, Docker Desktop runs it under Rosetta automatically.
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer                       # free for development and testing
       MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Copy .env.example to .env and set SA_PASSWORD}
-      MSSQL_MEMORY_LIMIT_MB: ${SQL_MEMORY_MB:-2048}
+      MSSQL_MEMORY_LIMIT_MB: 2048
     ports:
       - "1433:1433"
     volumes:
@@ -43,7 +41,6 @@ services:
     environment:
       SA_PASSWORD: ${SA_PASSWORD:?Copy .env.example to .env and set SA_PASSWORD}
       MCP_READER_PASSWORD: ${MCP_READER_PASSWORD:?Copy .env.example to .env and set MCP_READER_PASSWORD}
-      DB_NAME: ${DB_NAME:-TradingDemo}
       RECREATE: ${RECREATE:-0}
     entrypoint: ["/bin/bash", "/init/init-db.sh"]
     volumes:

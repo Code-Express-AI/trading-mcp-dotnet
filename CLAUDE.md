@@ -22,7 +22,7 @@ dotnet build XTests/XTests.csproj                                    # builds al
 dotnet test XTests/XTests.csproj                                     # run the tests
 dotnet test XTests/XTests.csproj --filter 'Category!=Integration'   # unit tests only, no Docker needed
 dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"     # with coverage
-docker compose up -d && docker compose run --rm db-init              # local database
+docker compose up -d --wait && docker compose run --rm db-init       # local database
 cd DataGenerator && dotnet run -- --reset                            # load data (Docker: reads .env)
 cd McpServer && dotnet run --urls http://localhost:5080              # run the server
 ```

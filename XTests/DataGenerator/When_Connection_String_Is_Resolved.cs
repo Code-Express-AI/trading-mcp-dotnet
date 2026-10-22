@@ -62,20 +62,18 @@ public class When_Connection_String_Is_Resolved : IDisposable
     }
 
     [Fact]
-    public void it_should_use_db_name_and_ignore_comments_blank_lines_and_quotes()
+    public void it_should_ignore_comments_blank_lines_and_quotes()
     {
         _directory.WriteEnvFile("""
             # Local settings
 
             SA_PASSWORD="Quoted-Secret-123"
             MCP_READER_PASSWORD=Reader-123
-            DB_NAME=OtherDemo
             """);
 
         var connection = new SqlConnectionStringBuilder(Resolve([]));
 
         Assert.Equal("Quoted-Secret-123", connection.Password);
-        Assert.Equal("OtherDemo", connection.InitialCatalog);
     }
 
     [Fact]

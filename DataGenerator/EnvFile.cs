@@ -22,7 +22,7 @@ internal static class EnvFile
         return new SqlConnectionStringBuilder
         {
             DataSource = "localhost,1433",
-            InitialCatalog = values.GetValueOrDefault("DB_NAME") is { Length: > 0 } database ? database : "TradingDemo",
+            InitialCatalog = "TradingDemo",
             UserID = "sa",
             Password = password,
             Encrypt = true,

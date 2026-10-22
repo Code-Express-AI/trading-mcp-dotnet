@@ -2,18 +2,10 @@
 # Creates the demo database and runs the SQL scripts in order. Runs inside the db-init container.
 set -euo pipefail
 
-DB="${DB_NAME:-TradingDemo}"
-HOST="${SQL_HOST:-sqlserver}"
-
-# Find sqlcmd (newer images ship it under mssql-tools18, older ones under mssql-tools).
-SQLCMD=""
-for candidate in /opt/mssql-tools18/bin/sqlcmd /opt/mssql-tools/bin/sqlcmd; do
-  if [ -x "$candidate" ]; then SQLCMD="$candidate"; break; fi
-done
-if [ -z "$SQLCMD" ]; then echo "sqlcmd not found in this image." >&2; exit 1; fi
+DB="TradingDemo"
 
 # -C trusts the container's self-signed certificate; -b makes sqlcmd fail on the first SQL error.
-run() { "$SQLCMD" -S "$HOST" -U sa -P "$SA_PASSWORD" -C -b "$@"; }
+run() { /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$SA_PASSWORD" -C -b "$@"; }
 
 exists=$(run -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.databases WHERE name = N'$DB';" | tr -d '[:space:]')
 
@@ -28,10 +20,7 @@ if [ "$exists" = "1" ]; then
 fi
 
 echo "Creating database '$DB'..."
-# sql/00_create_database.sql does the work; sed swaps in a custom name if DB_NAME was changed.
-sed "s/TradingDemo/${DB}/g" /sql/00_create_database.sql > /tmp/00_create_database.sql
-run -i /tmp/00_create_database.sql
-rm -f /tmp/00_create_database.sql
+run -i /sql/00_create_database.sql
 
 echo "Running 01_schema.sql..."
 run -d "$DB" -i /sql/01_schema.sql

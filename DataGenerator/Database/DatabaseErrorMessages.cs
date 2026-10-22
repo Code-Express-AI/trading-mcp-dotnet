@@ -21,7 +21,7 @@ internal static class DatabaseErrorMessages
 
     private const string PortConflictHint =
         "- If SQL Server is also installed on this machine (common on Windows), it may be using port 1433 " +
-        "and answering instead of the container. Stop that SQL Server service, then run: docker compose up -d";
+        "and answering instead of the container. Stop that SQL Server service, then run: docker compose up -d --wait";
 
     public static string Describe(SqlException exception, string connectionString) =>
         Describe(exception.Number, exception.Message, CausesOf(exception), connectionString);
@@ -79,9 +79,9 @@ internal static class DatabaseErrorMessages
     private static string CouldNotConnect(string server) => Lines(
         $"Couldn't connect to SQL Server at {server}.",
         "- Check Docker Desktop is running and the container is up: docker compose ps",
-        "- If it isn't, start it: docker compose up -d",
+        "- If it isn't, start it: docker compose up -d --wait",
         "- If Docker says port 1433 is already allocated, another SQL Server is probably installed on this machine. " +
-        "Stop that SQL Server service, then run: docker compose up -d",
+        "Stop that SQL Server service, then run: docker compose up -d --wait",
         "- Check the server and port in the connection string. For the local container use: Server=localhost,1433");
 
     private static string UntrustedCertificate() => Lines(

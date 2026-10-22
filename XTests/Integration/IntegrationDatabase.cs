@@ -14,7 +14,7 @@ internal static class IntegrationDatabase
 
     public static string? SkipReason => UnavailableReason.Value;
 
-    public static string DatabaseName => EnvValues.Value?.GetValueOrDefault("DB_NAME") is { Length: > 0 } name ? name : "TradingDemo";
+    public const string DatabaseName = "TradingDemo";
 
     public static string AdminConnectionString(string? database = null) =>
         Build("sa", EnvValues.Value!["SA_PASSWORD"], database ?? DatabaseName);
