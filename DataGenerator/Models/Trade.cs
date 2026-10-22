@@ -1,6 +1,6 @@
 namespace TradingDataGenerator.Models;
 
-public record Trade(
+internal sealed record Trade(
     int AccountId,
     int InstrumentId,
     string Side,

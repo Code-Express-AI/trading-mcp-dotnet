@@ -1,11 +1,11 @@
 namespace TradingDataGenerator.Models;
 
-public record Instrument(
+internal sealed record Instrument(
     int Id,
     string Ticker,
     string Name,
     string Sector,
     string Currency,
     double StartPrice,
-    double Mu, // Annual drift.
-    double Sigma); // Annual volatility.
+    double AnnualDrift,
+    double AnnualVolatility);

@@ -2,6 +2,10 @@
 
 A read-only MCP server for SQL Server, written in C# / .NET 10. An AI assistant can query a synthetic trading database but cannot change it. This is an educational project, not production code, and all data is invented.
 
+## Principle: pragmatism over idealism
+
+Choose the simplest readable solution that solves the real problem (KISS). Don't add abstractions, layers, patterns or drift-proofing for hypothetical problems. A small manual upkeep cost, or a cheap test as a safety net, beats extra structure. Clean code matters (clear names, guard clauses, separation of concerns, small functions) only where it makes the code easier to follow.
+
 ## Layout
 
 - `McpServer/` is the ASP.NET Core minimal API that hosts the MCP server. It contains tools, the repository, authentication, rate limiting and auditing.
@@ -18,6 +22,7 @@ dotnet build XTests/XTests.csproj                                    # builds al
 dotnet test XTests/XTests.csproj                                     # run the tests
 dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"     # with coverage
 docker compose up -d && docker compose run --rm db-init              # local database
+cd DataGenerator && dotnet run -- --reset                            # load data (Docker: reads .env)
 cd McpServer && dotnet run --urls http://localhost:5080              # run the server
 ```
 

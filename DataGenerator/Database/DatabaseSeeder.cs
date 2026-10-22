@@ -1,294 +1,184 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
-using TradingDataGenerator.Constants;
 using TradingDataGenerator.Models;
 
 namespace TradingDataGenerator.Database;
 
-public sealed class DatabaseSeeder : IDatabaseSeeder
+// Loads everything in a single transaction: either all the data goes in, or none of it does.
+internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
 {
-    private readonly IDatabaseSeederSessionFactory _sessionFactory;
-
-    public DatabaseSeeder(string databaseConnectionString)
+    public async Task<bool> ContainsDataAsync()
     {
-        _sessionFactory = new SqlDatabaseSeederSessionFactory(databaseConnectionString, this);
+        await using var connection = await OpenConnectionAsync();
+        return await ExecuteScalarIntAsync(connection, null, "SELECT COUNT(*) FROM trading.Instruments") > 0;
     }
 
-    internal DatabaseSeeder(IDatabaseSeederSessionFactory sessionFactory)
+    public async Task SeedAsync(GeneratedData data, bool clearExistingData)
     {
-        _sessionFactory = sessionFactory;
-    }
+        await using var connection = await OpenConnectionAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
 
-    public Task<int> SeedAsync(GeneratedData generatedData)
-    {
-        return SeedAsync(generatedData, resetExistingData: false);
-    }
-
-    private async Task<int> SeedAsync(GeneratedData generatedData, bool resetExistingData)
-    {
-        IDatabaseSeederSession session;
-        int existingInstrumentCount;
-
-        session = await _sessionFactory.BeginTransactionAsync();
-        await using (session)
+        if (clearExistingData)
         {
-            existingInstrumentCount = await session.GetExistingInstrumentCountAsync();
-            if (existingInstrumentCount > 0)
-            {
-                if (!resetExistingData)
-                {
-                    Console.Error.WriteLine(ErrorMessages.DatabaseAlreadyContainsData);
-                    return ExitCodes.DatabaseAlreadyContainsData;
-                }
+            await ClearDataAsync(connection, transaction);
+        }
 
-                await session.ClearDataAsync();
-            }
+        await InsertDataAsync(connection, transaction, data);
+        var openPositionCount = await ExecuteScalarIntAsync(connection, transaction, "SELECT COUNT(*) FROM trading.v_Positions");
+        await transaction.CommitAsync();
 
-            return await session.InsertAndCommitAsync(generatedData);
+        Console.WriteLine($"Done. {openPositionCount:N0} open positions across {data.Accounts.Count:N0} accounts.");
+    }
+
+    private async Task<SqlConnection> OpenConnectionAsync()
+    {
+        var connection = new SqlConnection(connectionString);
+        try
+        {
+            await connection.OpenAsync();
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
         }
     }
 
-    public Task<int> SeedAsyncWithReset(GeneratedData generatedData)
-    {
-        return SeedAsync(generatedData, resetExistingData: true);
-    }
-
-    private async Task<int> InsertAndCommitAsync(
-        SqlConnection sqlConnection, SqlTransaction sqlTransaction, GeneratedData generatedData)
-    {
-        int openPositionCount;
-        await InsertDataAsync(sqlConnection, sqlTransaction, generatedData);
-        openPositionCount = await ExecuteScalarIntAsync(
-            sqlConnection, sqlTransaction, "SELECT COUNT(*) FROM trading.v_Positions");
-        await sqlTransaction.CommitAsync();
-
-        Console.WriteLine($"Done. {openPositionCount:N0} open positions across {generatedData.Accounts.Count:N0} accounts.");
-        return ExitCodes.Success;
-    }
-
-    private async Task ClearDataAsync(SqlConnection sqlConnection, SqlTransaction sqlTransaction)
+    private static async Task ClearDataAsync(SqlConnection connection, SqlTransaction transaction)
     {
         Console.WriteLine("Clearing existing data (AuditLog is left alone)...");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DELETE FROM trading.Trades");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DELETE FROM trading.Prices");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DELETE FROM trading.Accounts");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DELETE FROM trading.Clients");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DELETE FROM trading.Instruments");
-        await ExecuteNonQueryAsync(sqlConnection, sqlTransaction, "DBCC CHECKIDENT ('trading.Trades', RESEED, 0)");
+
+        // Children before parents, so no foreign key is ever left pointing at a deleted row.
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Trades");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Prices");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Accounts");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Clients");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Instruments");
+
+        // Trades are the only table where SQL Server assigns the IDs, so restart them at 1.
+        await ExecuteNonQueryAsync(connection, transaction, "DBCC CHECKIDENT ('trading.Trades', RESEED, 0)");
     }
 
-    private async Task InsertDataAsync(
-        SqlConnection sqlConnection, SqlTransaction sqlTransaction, GeneratedData generatedData)
+    private static async Task InsertDataAsync(SqlConnection connection, SqlTransaction transaction, GeneratedData data)
     {
         Console.WriteLine("Inserting...");
 
-        await BulkAsync(sqlConnection, sqlTransaction, "trading.Instruments",
-            CreateInstrumentTable(generatedData.Instruments), preserveIdentityValues: true);
-        await BulkAsync(sqlConnection, sqlTransaction, "trading.Prices",
-            CreatePriceTable(generatedData.Prices), preserveIdentityValues: false);
-        await BulkAsync(sqlConnection, sqlTransaction, "trading.Clients",
-            CreateClientTable(generatedData.Clients), preserveIdentityValues: true);
-        await BulkAsync(sqlConnection, sqlTransaction, "trading.Accounts",
-            CreateAccountTable(generatedData.Accounts), preserveIdentityValues: true);
-        await BulkAsync(sqlConnection, sqlTransaction, "trading.Trades",
-            CreateTradeTable(generatedData.Trades), preserveIdentityValues: false);
+        // Parents before children. The generated IDs are kept (keepIdentity) so the foreign keys line up.
+        await BulkInsertAsync(connection, transaction, "trading.Instruments", CreateInstrumentTable(data.Instruments), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.Prices", CreatePriceTable(data.Prices), keepIdentity: false);
+        await BulkInsertAsync(connection, transaction, "trading.Clients", CreateClientTable(data.Clients), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.Accounts", CreateAccountTable(data.Accounts), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.Trades", CreateTradeTable(data.Trades), keepIdentity: false);
     }
 
-    private DataTable CreateInstrumentTable(IEnumerable<Instrument> generatedInstruments)
+    private static DataTable CreateInstrumentTable(IEnumerable<Instrument> instruments)
     {
-        DataTable tableToReturn;
-        tableToReturn = CreateTable(("InstrumentId", typeof(int)), ("Ticker", typeof(string)), ("Name", typeof(string)),
-                                    ("Sector", typeof(string)), ("Currency", typeof(string)));
-        foreach (var generatedInstrument in generatedInstruments)
+        var table = CreateTable(
+            ("InstrumentId", typeof(int)), ("Ticker", typeof(string)), ("Name", typeof(string)),
+            ("Sector", typeof(string)), ("Currency", typeof(string)));
+        foreach (var instrument in instruments)
         {
-            tableToReturn.Rows.Add(generatedInstrument.Id, generatedInstrument.Ticker, generatedInstrument.Name,
-                                   generatedInstrument.Sector, generatedInstrument.Currency);
+            table.Rows.Add(instrument.Id, instrument.Ticker, instrument.Name, instrument.Sector, instrument.Currency);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private DataTable CreatePriceTable(IEnumerable<PriceBar> generatedPriceBars)
+    private static DataTable CreatePriceTable(IEnumerable<PriceBar> prices)
     {
-        DataTable tableToReturn;
-        tableToReturn = CreateTable(("InstrumentId", typeof(int)), ("PriceDate", typeof(DateTime)),
-                                    ("OpenPrice", typeof(decimal)), ("HighPrice", typeof(decimal)),
-                                    ("LowPrice", typeof(decimal)), ("ClosePrice", typeof(decimal)), ("Volume", typeof(long)));
-        foreach (var priceBar in generatedPriceBars)
+        var table = CreateTable(
+            ("InstrumentId", typeof(int)), ("PriceDate", typeof(DateTime)), ("OpenPrice", typeof(decimal)),
+            ("HighPrice", typeof(decimal)), ("LowPrice", typeof(decimal)), ("ClosePrice", typeof(decimal)), ("Volume", typeof(long)));
+        foreach (var price in prices)
         {
-            tableToReturn.Rows.Add(priceBar.InstrumentId, priceBar.PriceDate, priceBar.Open, priceBar.High,
-                                   priceBar.Low, priceBar.Close, priceBar.Volume);
+            table.Rows.Add(price.InstrumentId, price.PriceDate, price.Open, price.High, price.Low, price.Close, price.Volume);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private DataTable CreateClientTable(IEnumerable<Client> generatedClients)
+    private static DataTable CreateClientTable(IEnumerable<Client> clients)
     {
-        DataTable tableToReturn;
-        tableToReturn = CreateTable(("ClientId", typeof(int)), ("FullName", typeof(string)), ("Email", typeof(string)),
-                                    ("Country", typeof(string)), ("RiskProfile", typeof(string)), ("CreatedOn", typeof(DateTime)));
-        foreach (var generatedClient in generatedClients)
+        var table = CreateTable(
+            ("ClientId", typeof(int)), ("FullName", typeof(string)), ("Email", typeof(string)),
+            ("Country", typeof(string)), ("RiskProfile", typeof(string)), ("CreatedOn", typeof(DateTime)));
+        foreach (var client in clients)
         {
-            tableToReturn.Rows.Add(generatedClient.Id, generatedClient.FullName, generatedClient.Email,
-                                   generatedClient.Country, generatedClient.RiskProfile, generatedClient.CreatedOn);
+            table.Rows.Add(client.Id, client.FullName, client.Email, client.Country, client.RiskProfile, client.CreatedOn);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private DataTable CreateAccountTable(IEnumerable<Account> generatedAccounts)
+    private static DataTable CreateAccountTable(IEnumerable<Account> accounts)
     {
-        DataTable tableToReturn;
-        tableToReturn = CreateTable(("AccountId", typeof(int)), ("ClientId", typeof(int)), ("AccountNumber", typeof(string)),
-                                    ("AccountType", typeof(string)), ("BaseCurrency", typeof(string)), ("OpenedOn", typeof(DateTime)));
-        foreach (var generatedAccount in generatedAccounts)
+        var table = CreateTable(
+            ("AccountId", typeof(int)), ("ClientId", typeof(int)), ("AccountNumber", typeof(string)),
+            ("AccountType", typeof(string)), ("BaseCurrency", typeof(string)), ("OpenedOn", typeof(DateTime)));
+        foreach (var account in accounts)
         {
-            tableToReturn.Rows.Add(generatedAccount.Id, generatedAccount.ClientId, generatedAccount.AccountNumber,
-                                   generatedAccount.AccountType, generatedAccount.BaseCurrency, generatedAccount.OpenedOn);
+            table.Rows.Add(account.Id, account.ClientId, account.AccountNumber, account.AccountType, account.BaseCurrency, account.OpenedOn);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private DataTable CreateTradeTable(IEnumerable<Trade> generatedTrades)
+    private static DataTable CreateTradeTable(IEnumerable<Trade> trades)
     {
-        DataTable tableToReturn;
-        tableToReturn = CreateTable(("AccountId", typeof(int)), ("InstrumentId", typeof(int)), ("Side", typeof(string)),
-                                    ("Quantity", typeof(decimal)), ("Price", typeof(decimal)), ("Fees", typeof(decimal)),
-                                    ("TradeTimestamp", typeof(DateTime)), ("Status", typeof(string)));
-        foreach (var generatedTrade in generatedTrades)
+        var table = CreateTable(
+            ("AccountId", typeof(int)), ("InstrumentId", typeof(int)), ("Side", typeof(string)), ("Quantity", typeof(decimal)),
+            ("Price", typeof(decimal)), ("Fees", typeof(decimal)), ("TradeTimestamp", typeof(DateTime)), ("Status", typeof(string)));
+        foreach (var trade in trades)
         {
-            tableToReturn.Rows.Add(generatedTrade.AccountId, generatedTrade.InstrumentId, generatedTrade.Side,
-                                   generatedTrade.Quantity, generatedTrade.Price, generatedTrade.Fees,
-                                   generatedTrade.Timestamp, generatedTrade.Status);
+            table.Rows.Add(trade.AccountId, trade.InstrumentId, trade.Side, trade.Quantity,
+                           trade.Price, trade.Fees, trade.Timestamp, trade.Status);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private DataTable CreateTable(params (string Name, Type Type)[] tableColumns)
+    private static DataTable CreateTable(params (string Name, Type Type)[] columns)
     {
-        DataTable tableToReturn;
-        tableToReturn = new DataTable();
-        foreach (var (columnName, columnType) in tableColumns)
+        var table = new DataTable();
+        foreach (var (name, type) in columns)
         {
-            tableToReturn.Columns.Add(columnName, columnType);
+            table.Columns.Add(name, type);
         }
-        return tableToReturn;
+
+        return table;
     }
 
-    private async Task BulkAsync(
-        SqlConnection sqlConnection,
-        SqlTransaction sqlTransaction,
-        string destinationTableName,
-        DataTable tableData,
-        bool preserveIdentityValues)
+    private static async Task BulkInsertAsync(
+        SqlConnection connection, SqlTransaction transaction, string tableName, DataTable rows, bool keepIdentity)
     {
-        SqlBulkCopyOptions bulkCopyOptions;
-        SqlBulkCopy bulkCopy;
-        bulkCopyOptions = SqlBulkCopyOptions.TableLock
-                          | (preserveIdentityValues
-                              ? SqlBulkCopyOptions.KeepIdentity
-                              : SqlBulkCopyOptions.Default);
-        using (bulkCopy = new SqlBulkCopy(sqlConnection, bulkCopyOptions, sqlTransaction)
+        var options = SqlBulkCopyOptions.TableLock | (keepIdentity ? SqlBulkCopyOptions.KeepIdentity : SqlBulkCopyOptions.Default);
+        using var bulkCopy = new SqlBulkCopy(connection, options, transaction)
         {
-            DestinationTableName = destinationTableName,
+            DestinationTableName = tableName,
             BatchSize = 5000,
             BulkCopyTimeout = 300
-        })
-        {
-            foreach (DataColumn tableColumn in tableData.Columns)
-            {
-                bulkCopy.ColumnMappings.Add(tableColumn.ColumnName, tableColumn.ColumnName);
-            }
+        };
 
-            await bulkCopy.WriteToServerAsync(tableData);
-            Console.WriteLine($"  {destinationTableName,-22} {tableData.Rows.Count,9:N0} rows");
+        // Map by name, so the column order in the DataTable doesn't have to match the table.
+        foreach (DataColumn column in rows.Columns)
+        {
+            bulkCopy.ColumnMappings.Add(column.ColumnName, column.ColumnName);
         }
+
+        await bulkCopy.WriteToServerAsync(rows);
+        Console.WriteLine($"  {tableName,-22} {rows.Rows.Count,9:N0} rows");
     }
 
-    private async Task<int> ExecuteScalarIntAsync(
-        SqlConnection sqlConnection, SqlTransaction sqlTransaction, string sqlQuery)
+    private static async Task<int> ExecuteScalarIntAsync(SqlConnection connection, SqlTransaction? transaction, string sql)
     {
-        int resultToReturn;
-        await using var sqlCommand = new SqlCommand(sqlQuery, sqlConnection, sqlTransaction);
-        resultToReturn = Convert.ToInt32(await sqlCommand.ExecuteScalarAsync());
-        return resultToReturn;
+        await using var command = new SqlCommand(sql, connection, transaction);
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
 
-    private async Task ExecuteNonQueryAsync(
-        SqlConnection sqlConnection, SqlTransaction sqlTransaction, string sqlCommandText)
+    private static async Task ExecuteNonQueryAsync(SqlConnection connection, SqlTransaction transaction, string sql)
     {
-        SqlCommand sqlCommand;
-        await using (sqlCommand = new SqlCommand(sqlCommandText, sqlConnection, sqlTransaction) { CommandTimeout = 120 })
-        {
-            await sqlCommand.ExecuteNonQueryAsync();
-        }
+        await using var command = new SqlCommand(sql, connection, transaction) { CommandTimeout = 120 };
+        await command.ExecuteNonQueryAsync();
     }
-
-    private sealed class SqlDatabaseSeederSessionFactory(string databaseConnectionString, DatabaseSeeder owner)
-        : IDatabaseSeederSessionFactory
-    {
-        public async Task<IDatabaseSeederSession> BeginTransactionAsync()
-        {
-            SqlConnection sqlConnection;
-            SqlTransaction sqlTransaction;
-
-            sqlConnection = new SqlConnection(databaseConnectionString);
-            try
-            {
-                await sqlConnection.OpenAsync();
-                sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync();
-            }
-            catch
-            {
-                await sqlConnection.DisposeAsync();
-                throw;
-            }
-
-            return new SqlDatabaseSeederSession(owner, sqlConnection, sqlTransaction);
-        }
-    }
-
-    private sealed class SqlDatabaseSeederSession(
-        DatabaseSeeder owner,
-        SqlConnection sqlConnection,
-        SqlTransaction sqlTransaction) : IDatabaseSeederSession
-    {
-        public Task<int> GetExistingInstrumentCountAsync()
-        {
-            return owner.ExecuteScalarIntAsync(
-                sqlConnection, sqlTransaction, "SELECT COUNT(*) FROM trading.Instruments");
-        }
-
-        public Task ClearDataAsync()
-        {
-            return owner.ClearDataAsync(sqlConnection, sqlTransaction);
-        }
-
-        public Task<int> InsertAndCommitAsync(GeneratedData generatedData)
-        {
-            return owner.InsertAndCommitAsync(sqlConnection, sqlTransaction, generatedData);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            try
-            {
-                await sqlTransaction.DisposeAsync();
-            }
-            finally
-            {
-                await sqlConnection.DisposeAsync();
-            }
-        }
-    }
-}
-
-internal interface IDatabaseSeederSessionFactory
-{
-    Task<IDatabaseSeederSession> BeginTransactionAsync();
-}
-
-internal interface IDatabaseSeederSession : IAsyncDisposable
-{
-    Task<int> GetExistingInstrumentCountAsync();
-    Task ClearDataAsync();
-    Task<int> InsertAndCommitAsync(GeneratedData generatedData);
 }

@@ -1,6 +1,6 @@
 namespace TradingDataGenerator.Models;
 
-public record Client(
+internal sealed record Client(
     int Id,
     string FullName,
     string Email,

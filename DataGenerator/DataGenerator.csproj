@@ -10,8 +10,10 @@
 
   <ItemGroup>
     <!-- Versions are a safe baseline; run `dotnet add package <name>` to pick up the latest. -->
-    <PackageReference Include="Bogus" Version="35.6.1" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="Bogus" Version="35.6.5" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <!-- Pinned: SqlClient 7.1.1 pulls in 9.0.18, which has known vulnerabilities. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>

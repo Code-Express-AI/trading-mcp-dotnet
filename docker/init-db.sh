@@ -20,7 +20,7 @@ exists=$(run -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.databases WHE
 if [ "$exists" = "1" ]; then
   if [ "${RECREATE:-0}" != "1" ]; then
     echo "Database '$DB' already exists. Nothing to do."
-    echo "To wipe it and start again:  RECREATE=1 docker compose run --rm db-init"
+    echo "To delete it and start again:  docker compose run --rm -e RECREATE=1 db-init"
     exit 0
   fi
   echo "RECREATE=1: dropping database '$DB'..."
@@ -54,10 +54,10 @@ cat <<EOF
 
 Done. Database '$DB' is ready on localhost,1433 with the schema, the read-only mcp_reader user and the stored procedures.
 
-Next, load the synthetic data (as sa):
+Next, load the synthetic data (it reads SA_PASSWORD from .env):
   cd DataGenerator
-  dotnet run -- "Server=localhost,1433;Database=$DB;User ID=sa;Password=<SA_PASSWORD>;Encrypt=True;TrustServerCertificate=True" --reset
+  dotnet run -- --reset
 
 Connection string for the MCP server (as mcp_reader):
-  Server=localhost,1433;Database=$DB;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True
+  Server=localhost,1433;Database=$DB;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True;Connect Timeout=5
 EOF

@@ -4,51 +4,30 @@ namespace XTests.DataGenerator;
 
 public class When_DataGenerator_Is_Started
 {
-    [Theory]
-    [InlineData(null, "")]
-    [InlineData(" ", "Server=example;Database=example;")]
-    public async Task it_should_exit_with_invalid_configuration_when_no_usable_connection_string_is_available(
-        string? connectionStringArgument,
-        string environmentConnectionString)
+    [Fact]
+    public async Task it_should_exit_with_invalid_options_when_there_is_no_connection_string_or_env_file()
     {
-        string dataGeneratorAssemblyPath;
-        ProcessStartInfo processStartInfo;
-        Process process;
-        string standardError;
-        string standardOutput;
-        int exitCode;
+        using var emptyDirectory = new TempDirectory();
+        var assemblyPath = Path.Combine(AppContext.BaseDirectory, "DataGenerator.dll");
+        Assert.True(File.Exists(assemblyPath), $"Expected to find {assemblyPath}.");
 
-        dataGeneratorAssemblyPath = Path.Combine(AppContext.BaseDirectory, "DataGenerator.dll");
-        Assert.True(File.Exists(dataGeneratorAssemblyPath), $"Expected to find {dataGeneratorAssemblyPath}.");
-
-        processStartInfo = new ProcessStartInfo("dotnet")
+        var startInfo = new ProcessStartInfo("dotnet")
         {
             RedirectStandardError = true,
             RedirectStandardOutput = true,
-            UseShellExecute = false
+            UseShellExecute = false,
+            WorkingDirectory = emptyDirectory.Path
         };
-        processStartInfo.ArgumentList.Add(dataGeneratorAssemblyPath);
-        if (connectionStringArgument is not null)
-        {
-            processStartInfo.ArgumentList.Add(connectionStringArgument);
-        }
+        startInfo.ArgumentList.Add(assemblyPath);
+        startInfo.Environment["TRADING_DB_CONNECTION"] = "";
 
-        processStartInfo.Environment["TRADING_DB_CONNECTION"] = environmentConnectionString;
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start DataGenerator.");
+        var standardError = await process.StandardError.ReadToEndAsync();
+        var standardOutput = await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
 
-        process = Process.Start(processStartInfo)
-            ?? throw new InvalidOperationException("Failed to start the DataGenerator process.");
-        using (process)
-        {
-            standardError = await process.StandardError.ReadToEndAsync();
-            standardOutput = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
-            exitCode = process.ExitCode;
-        }
-
-        Assert.Equal(1, exitCode);
-        Assert.Equal(
-            "No connection string. Pass it as the first argument or set TRADING_DB_CONNECTION.",
-            standardError.Trim());
+        Assert.Equal(1, process.ExitCode);
+        Assert.StartsWith("No connection string, and no .env file found in", standardError);
         Assert.Empty(standardOutput);
     }
 }

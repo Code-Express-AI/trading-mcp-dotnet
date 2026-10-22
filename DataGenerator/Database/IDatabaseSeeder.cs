@@ -2,8 +2,8 @@ using TradingDataGenerator.Models;
 
 namespace TradingDataGenerator.Database;
 
-public interface IDatabaseSeeder
+internal interface IDatabaseSeeder
 {
-    Task<int> SeedAsync(GeneratedData generatedData);
-    Task<int> SeedAsyncWithReset(GeneratedData generatedData);
+    Task<bool> ContainsDataAsync();
+    Task SeedAsync(GeneratedData data, bool clearExistingData);
 }

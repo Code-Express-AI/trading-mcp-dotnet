@@ -1,89 +1,113 @@
-using TradingDataGenerator.Configuration;
+using TradingDataGenerator;
 
 namespace XTests.DataGenerator;
 
-public class When_Generator_Options_Are_Parsed
+public class When_Generator_Options_Are_Parsed : IDisposable
 {
+    private const string ConnectionString = "Server=localhost,1433;Database=TradingDemo;User ID=sa;Password=Secret-123";
+    private static readonly DateTime Today = new(2026, 3, 15);
+
+    private readonly TempDirectory _directory = new();
+
+    public void Dispose() => _directory.Dispose();
+
+    private GeneratorOptions Parse(params string[] args) => GeneratorOptions.Parse(args, ConnectionString, Today, _directory.Path);
+
+    private string ParseError(string[] args) =>
+        Assert.Throws<InvalidOptionsException>(() => GeneratorOptions.Parse(args, ConnectionString, Today, _directory.Path)).Message;
+
     [Fact]
     public void it_should_use_default_values_when_no_options_are_provided()
     {
-        GeneratorOptionsParseResult result;
-        GeneratorOptions generatorOptions;
+        var options = Parse();
 
-        result = GeneratorOptions.Parse(Array.Empty<string>());
-        generatorOptions = result.Options ?? throw new InvalidOperationException(result.ErrorMessage);
-
-        Assert.False(generatorOptions.Reset);
-        Assert.Equal(42, generatorOptions.Seed);
-        Assert.Equal(50, generatorOptions.InstrumentCount);
-        Assert.Equal(200, generatorOptions.ClientCount);
-        Assert.Equal(3, generatorOptions.Years);
-        Assert.Equal(40, generatorOptions.TradesPerAccount);
+        Assert.Equal(ConnectionString, options.ConnectionString);
+        Assert.False(options.Reset);
+        Assert.Equal(42, options.Seed);
+        Assert.Equal(50, options.InstrumentCount);
+        Assert.Equal(200, options.ClientCount);
+        Assert.Equal(3, options.Years);
+        Assert.Equal(40, options.TradesPerAccount);
+        Assert.Equal(new DateTime(2026, 3, 14), options.EndDate);
     }
 
     [Fact]
-    public void it_should_parse_explicit_values_and_reset_flag()
+    public void it_should_parse_explicit_values_and_the_reset_flag()
     {
-        GeneratorOptionsParseResult result;
-        GeneratorOptions generatorOptions;
+        var options = Parse(
+            "--reset", "--seed=7", "--instruments=12", "--clients=30", "--years=2", "--trades-per-account=20", "--end-date=2025-12-31");
 
-        result = GeneratorOptions.Parse(
-            ["--reset", "--seed=7", "--instruments=12", "--clients=30", "--years=2", "--trades-per-account=20"]);
-        generatorOptions = result.Options ?? throw new InvalidOperationException(result.ErrorMessage);
+        Assert.True(options.Reset);
+        Assert.Equal(7, options.Seed);
+        Assert.Equal(12, options.InstrumentCount);
+        Assert.Equal(30, options.ClientCount);
+        Assert.Equal(2, options.Years);
+        Assert.Equal(20, options.TradesPerAccount);
+        Assert.Equal(new DateTime(2025, 12, 31), options.EndDate);
+    }
 
-        Assert.True(generatorOptions.Reset);
-        Assert.Equal(7, generatorOptions.Seed);
-        Assert.Equal(12, generatorOptions.InstrumentCount);
-        Assert.Equal(30, generatorOptions.ClientCount);
-        Assert.Equal(2, generatorOptions.Years);
-        Assert.Equal(20, generatorOptions.TradesPerAccount);
+    [Fact]
+    public void it_should_use_the_last_value_when_an_option_is_repeated()
+    {
+        Assert.Equal(8, Parse("--seed=7", "--seed=8").Seed);
+    }
+
+    [Fact]
+    public void it_should_reject_a_connection_string_that_still_contains_a_placeholder()
+    {
+        var error = ParseError(["Server=localhost,1433;User ID=sa;Password=<SA_PASSWORD>"]);
+
+        Assert.StartsWith("The connection string still contains a placeholder such as <SA_PASSWORD>.", error);
+    }
+
+    [Fact]
+    public void it_should_reject_a_badly_formatted_connection_string()
+    {
+        Assert.StartsWith("The connection string isn't valid:", ParseError(["not a connection string"]));
+    }
+
+    [Fact]
+    public void it_should_reject_an_unknown_option()
+    {
+        Assert.Equal(
+            "Unknown option '--instrument'. Run with --help to see the valid options.",
+            ParseError(["--instrument=50"]));
+    }
+
+    [Fact]
+    public void it_should_reject_a_value_written_with_a_space_instead_of_an_equals_sign()
+    {
+        Assert.Equal(
+            "Unexpected argument '42'. Write options as --name=value, for example --seed=42.",
+            ParseError([ConnectionString, "--seed", "42"]));
+    }
+
+    [Fact]
+    public void it_should_reject_a_value_for_the_reset_flag()
+    {
+        Assert.Equal("--reset doesn't take a value. Use --reset on its own.", ParseError(["--reset=false"]));
     }
 
     [Theory]
-    [InlineData("--seed=invalid", "Invalid --seed value 'invalid'. Expected an integer.")]
-    [InlineData("--instruments=invalid", "Invalid --instruments value 'invalid'. Expected an integer.")]
-    [InlineData("--clients=invalid", "Invalid --clients value 'invalid'. Expected an integer.")]
-    [InlineData("--years=invalid", "Invalid --years value 'invalid'. Expected an integer.")]
-    [InlineData("--trades-per-account=invalid", "Invalid --trades-per-account value 'invalid'. Expected an integer.")]
-    [InlineData("--instruments=0", "--instruments must be greater than zero.")]
-    [InlineData("--clients=-1", "--clients cannot be negative.")]
-    [InlineData("--years=0", "--years must be greater than zero.")]
-    [InlineData("--trades-per-account=1", "--trades-per-account must be between 2 and 1073741823.")]
-    [InlineData("--trades-per-account=1073741824", "--trades-per-account must be between 2 and 1073741823.")]
-    public void it_should_return_an_error_when_an_option_is_invalid(
-        string invalidOption,
-        string expectedErrorMessage)
+    [InlineData("--seed=abc", "Invalid --seed value 'abc'. Expected a whole number, for example --seed=42.")]
+    [InlineData("--instruments=1.5", "Invalid --instruments value '1.5'. Expected a whole number, for example --instruments=50.")]
+    [InlineData("--seed=-1", "--seed must be between 0 and 2147483647.")]
+    [InlineData("--instruments=0", "--instruments must be between 1 and 375.")]
+    [InlineData("--instruments=376", "--instruments must be between 1 and 375.")]
+    [InlineData("--clients=0", "--clients must be between 1 and 10000.")]
+    [InlineData("--years=11", "--years must be between 1 and 10.")]
+    [InlineData("--trades-per-account=1", "--trades-per-account must be between 2 and 1000.")]
+    [InlineData("--end-date=15/03/2026", "Invalid --end-date value '15/03/2026'. Expected yyyy-MM-dd, for example --end-date=2026-01-30.")]
+    [InlineData("--end-date=2026-03-15", "--end-date must be between 2000-01-01 and yesterday (2026-03-14).")]
+    [InlineData("--end-date=1999-12-31", "--end-date must be between 2000-01-01 and yesterday (2026-03-14).")]
+    public void it_should_reject_an_invalid_value(string option, string expectedError)
     {
-        GeneratorOptionsParseResult result;
-
-        result = GeneratorOptions.Parse([invalidOption]);
-
-        Assert.Null(result.Options);
-        Assert.Equal(expectedErrorMessage, result.ErrorMessage);
+        Assert.Equal(expectedError, ParseError([option]));
     }
 
     [Fact]
-    public void it_should_reject_a_year_count_beyond_the_available_date_range()
+    public void it_should_describe_every_option_in_the_help()
     {
-        GeneratorOptionsParseResult result;
-
-        result = GeneratorOptions.Parse(["--years=5000"]);
-
-        Assert.Null(result.Options);
-        Assert.Equal(
-            $"--years cannot exceed {DateTime.UtcNow.Date.AddDays(-1).Year - 1} for the current date range.",
-            result.ErrorMessage);
-    }
-
-    [Fact]
-    public void it_should_ignore_non_options_and_use_the_last_value_for_duplicate_options()
-    {
-        GeneratorOptionsParseResult result;
-        GeneratorOptions generatorOptions;
-
-        result = GeneratorOptions.Parse(["connection-string", "--seed=7", "--seed=8"]);
-        generatorOptions = result.Options ?? throw new InvalidOperationException(result.ErrorMessage);
-
-        Assert.Equal(8, generatorOptions.Seed);
+        Assert.All(GeneratorOptions.KnownOptions, option => Assert.Contains($"--{option}", GeneratorOptions.HelpText));
     }
 }

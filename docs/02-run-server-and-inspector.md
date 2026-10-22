@@ -10,7 +10,7 @@ From the repository root, configure the connection string using the same `MCP_RE
 
 ```sh
 cd McpServer
-dotnet user-secrets set "ConnectionStrings:Trading" "Server=localhost,1433;Database=TradingDemo;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True"
+dotnet user-secrets set "ConnectionStrings:Trading" "Server=localhost,1433;Database=TradingDemo;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True;Connect Timeout=5"
 ```
 
 Create a random token of at least 32 characters.

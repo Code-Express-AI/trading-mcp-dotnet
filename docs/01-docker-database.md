@@ -32,17 +32,19 @@ docker compose up -d
 docker compose run --rm db-init
 ```
 
-`db-init` waits for SQL Server to be healthy. If the database already exists, it leaves it unchanged.
+`db-init` waits for SQL Server to be healthy. If the database already exists, it leaves it unchanged. To delete it and start again, run `docker compose run --rm -e RECREATE=1 db-init`.
 
-Load the sample data as the SQL Server administrator:
+Load the sample data:
 
 ```sh
 cd DataGenerator
-dotnet run -- "Server=localhost,1433;Database=TradingDemo;User ID=sa;Password=<SA_PASSWORD>;Encrypt=True;TrustServerCertificate=True" --reset
+dotnet run -- --reset
 cd ..
 ```
 
-Replace `<SA_PASSWORD>` with the value from `.env`. `--reset` clears and reloads the generated data. The generator also accepts options such as `--seed=42`, `--instruments=50`, `--clients=200`, `--years=3`, and `--trades-per-account=40`.
+No connection string is needed. The generator finds the `.env` file and connects to the container as `sa` using `SA_PASSWORD`. You can still pass a connection string as the first argument if you want to. `--reset` deletes any existing data first, so you can run the same command again at any time.
+
+Run `dotnet run -- --help` to see all the options, such as how many clients to create or how many years of prices to generate. The data ends yesterday, so it changes from day to day; add `--end-date=yyyy-MM-dd` to get exactly the same data every time.
 
 ## Use an existing SQL Server instead
 
@@ -50,12 +52,13 @@ You can use an existing SQL Server or Azure SQL Database instead of Docker:
 
 1. For self-hosted SQL Server, run `sql/00_create_database.sql` as an administrator connected to `master`. For Azure SQL Database, create an empty database in Azure and skip this script.
 2. Connect to `TradingDemo` and run `sql/01_schema.sql`, then `sql/02_security.sql`. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`; keep it for the server connection string.
-3. Load the data as an administrator:
+3. Load the data as an administrator. Without Docker there's no `.env` file, so the connection string is required:
    ```sh
    cd DataGenerator
    dotnet run -- "Server=<server>;Database=TradingDemo;User ID=<admin>;Password=<admin-password>;Encrypt=True;TrustServerCertificate=True" --reset
    cd ..
    ```
+   To keep the password out of your shell history, set the connection string in the `TRADING_DB_CONNECTION` environment variable instead and leave it off the command.
 4. Run `sql/03_procedures.sql` as an administrator connected to `TradingDemo`.
 
 Use a connection string appropriate for your SQL Server. `TrustServerCertificate=True` is for the local Docker container; do not use it for Azure SQL. For Azure-specific firewall and deployment steps, see [Deploy to Azure](04-azure-deployment.md).

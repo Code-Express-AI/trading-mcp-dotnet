@@ -1,57 +1,56 @@
-using TradingDataGenerator.Configuration;
-using TradingDataGenerator.Constants;
+using Microsoft.Data.SqlClient;
 using TradingDataGenerator.Database;
 using TradingDataGenerator.Generation;
-using TradingDataGenerator.Models;
 
 namespace TradingDataGenerator;
 
-internal sealed class DataLoader : IDataLoader
+internal sealed class DataLoader(Func<string, IDatabaseSeeder> createSeeder, TextWriter output, TextWriter errorOutput)
 {
-    private readonly IDataPreparation _dataPreparation;
-    private readonly Func<string, IDatabaseSeeder> _databaseSeederFactory;
-
-    internal DataLoader()
-        : this(
-            new DataPreparation(new SyntheticDataGenerator()),
-            databaseConnectionString => new DatabaseSeeder(databaseConnectionString))
+    public async Task<int> RunAsync(string[] args, string? environmentConnectionString, string currentDirectory)
     {
+        if (GeneratorOptions.IsHelpRequested(args))
+        {
+            await output.WriteLineAsync(GeneratorOptions.HelpText);
+            return ExitCodes.Success;
+        }
+
+        GeneratorOptions options;
+        try
+        {
+            options = GeneratorOptions.Parse(args, environmentConnectionString, DateTime.UtcNow.Date, currentDirectory);
+        }
+        catch (InvalidOptionsException exception)
+        {
+            await errorOutput.WriteLineAsync(exception.Message);
+            return ExitCodes.InvalidOptions;
+        }
+
+        try
+        {
+            return await LoadAsync(options);
+        }
+        catch (SqlException exception)
+        {
+            await errorOutput.WriteLineAsync(DatabaseErrorMessages.Describe(exception, options.ConnectionString));
+            return ExitCodes.DatabaseError;
+        }
     }
 
-    internal DataLoader(
-        IDataPreparation dataPreparation,
-        Func<string, IDatabaseSeeder> databaseSeederFactory)
+    private async Task<int> LoadAsync(GeneratorOptions options)
     {
-        _dataPreparation = dataPreparation;
-        _databaseSeederFactory = databaseSeederFactory;
-    }
+        var seeder = createSeeder(options.ConnectionString);
 
-    public async Task<int> LoadAsync(string[] commandLineArgs, string databaseConnectionString)
-    {
-        GeneratorOptionsParseResult generatorOptionsParseResult;
-        GeneratorOptions generatorOptions;
-        GeneratedData generatedData;
-        IDatabaseSeeder databaseSeeder;
-        int seedResultCode;
-
-        generatorOptionsParseResult = GeneratorOptions.Parse(commandLineArgs);
-        if (generatorOptionsParseResult.Options is not { } parsedGeneratorOptions)
+        // Checked before generating, so a bad connection fails in seconds rather than after the data is built.
+        var databaseContainsData = await seeder.ContainsDataAsync();
+        if (databaseContainsData && !options.Reset)
         {
-            Console.Error.WriteLine(generatorOptionsParseResult.ErrorMessage);
-            return ExitCodes.InvalidConfiguration;
+            await errorOutput.WriteLineAsync(
+                "The database already contains data. Run again with --reset to delete it and load new data.");
+            return ExitCodes.DatabaseAlreadyContainsData;
         }
 
-        generatorOptions = parsedGeneratorOptions;
-        generatedData = _dataPreparation.PrepareGeneratedData(generatorOptions);
-        databaseSeeder = _databaseSeederFactory(databaseConnectionString);
-        if (generatorOptions.Reset)
-        {
-            seedResultCode = await databaseSeeder.SeedAsyncWithReset(generatedData);
-        }
-        else
-        {
-            seedResultCode = await databaseSeeder.SeedAsync(generatedData);
-        }
-        return seedResultCode;
+        var data = SyntheticData.Generate(options);
+        await seeder.SeedAsync(data, clearExistingData: databaseContainsData);
+        return ExitCodes.Success;
     }
 }

@@ -1,6 +1,6 @@
 namespace TradingDataGenerator.Models;
 
-public record Account(
+internal sealed record Account(
     int Id,
     int ClientId,
     string AccountNumber,
