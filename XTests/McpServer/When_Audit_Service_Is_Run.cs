@@ -9,7 +9,7 @@ using TradingMcp.Tools;
 
 namespace XTests.McpServer;
 
-public class When_Audit_Service_Runs
+public class When_Audit_Service_Is_Run
 {
     private readonly ITradingRepository _repository = Substitute.For<ITradingRepository>();
 

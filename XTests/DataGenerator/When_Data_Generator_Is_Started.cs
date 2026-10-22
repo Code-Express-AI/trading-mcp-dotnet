@@ -2,7 +2,9 @@ using System.Diagnostics;
 
 namespace XTests.DataGenerator;
 
-public class When_DataGenerator_Is_Started
+// Starts the real DataGenerator executable, so this is an end-to-end test rather than a unit test.
+[Trait("Category", "Integration")]
+public class When_Data_Generator_Is_Started
 {
     [Fact]
     public async Task it_should_exit_with_invalid_options_when_there_is_no_connection_string_or_env_file()

@@ -59,7 +59,30 @@ Follow the first three guides in order for the complete local walkthrough. The c
 
 ## Tests and coverage
 
-Run the xUnit suite with coverage collection:
+The `XTests` project has two kinds of test:
+
+- **Unit tests** check the logic on its own: option parsing, data generation, tool argument checks, authentication and auditing. They need nothing installed and run in under a second.
+- **Integration tests** run against the local Docker SQL Server. They load data into a throwaway database, call every stored procedure as `mcp_reader`, and prove that `mcp_reader` can't read or change the tables directly. If SQL Server isn't running, they're skipped rather than failed.
+
+Run all the tests:
+
+```sh
+dotnet test XTests/XTests.csproj
+```
+
+Run only the unit tests:
+
+```sh
+dotnet test XTests/XTests.csproj --filter 'Category!=Integration'
+```
+
+Run only the integration tests. Start SQL Server and load the data first (guide 1):
+
+```sh
+dotnet test XTests/XTests.csproj --filter 'Category=Integration'
+```
+
+Run all the tests with coverage collection:
 
 ```sh
 dotnet test XTests/XTests.csproj --collect:"XPlat Code Coverage"

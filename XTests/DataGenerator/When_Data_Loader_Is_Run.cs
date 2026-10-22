@@ -4,7 +4,7 @@ using TradingDataGenerator.Models;
 
 namespace XTests.DataGenerator;
 
-public class When_DataLoader_Is_Run : IDisposable
+public class When_Data_Loader_Is_Run : IDisposable
 {
     private const string ConnectionString = "Server=localhost,1433;Database=TradingDemo;User ID=sa;Password=Secret-123";
     private static readonly string[] SmallDataSet = ["--years=1", "--instruments=2", "--clients=2", "--trades-per-account=2"];
@@ -89,7 +89,9 @@ public class When_DataLoader_Is_Run : IDisposable
         Assert.True(seeder.ClearedExistingData);
     }
 
+    // Makes a real connection attempt to a port nothing listens on.
     [Fact]
+    [Trait("Category", "Integration")]
     public async Task it_should_explain_the_problem_when_sql_server_cannot_be_reached()
     {
         var loader = new DataLoader(connectionString => new DatabaseSeeder(connectionString), _output, _errorOutput);

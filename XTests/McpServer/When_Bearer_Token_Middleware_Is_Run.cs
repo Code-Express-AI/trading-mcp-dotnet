@@ -5,7 +5,7 @@ using TradingMcp.Auth;
 
 namespace XTests.McpServer;
 
-public class When_Bearer_Token_Middleware_Runs
+public class When_Bearer_Token_Middleware_Is_Run
 {
     private const string ConfiguredToken = "test-token-with-more-than-thirty-two-characters";
 

@@ -10,7 +10,7 @@ using TradingMcp.Repository;
 
 namespace XTests.McpServer;
 
-public class When_McpServer_Application_Is_Built
+public class When_Mcp_Server_Application_Is_Built
 {
     private const string ConnectionString = "--ConnectionStrings:Trading=Server=localhost;Database=TradingDemo;";
     private const string Token = "--Mcp:Tokens:inspector=test-token-with-more-than-thirty-two-characters";

@@ -75,6 +75,28 @@ public class When_Trading_Tools_Are_Called
     }
 
     [Fact]
+    public async Task it_should_call_the_repository_once_for_each_tool_with_valid_arguments()
+    {
+        await _tools.GetDatasetInfo();
+        await _tools.SearchInstruments("MAR");
+        await _tools.GetPriceHistory("MARP", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30));
+        await _tools.GetTopMovers(new DateOnly(2026, 6, 30), 5);
+        await _tools.FindAccounts("Smith");
+        await _tools.ListTrades(45);
+        await _tools.GetPositions(45);
+        await _tools.GetPortfolioSummary(45);
+
+        await _repository.Received(1).GetDatasetInfo(Arg.Any<CancellationToken>());
+        await _repository.Received(1).SearchInstruments("MAR", Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetPriceHistory("MARP", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetTopMovers(new DateOnly(2026, 6, 30), 5, Arg.Any<CancellationToken>());
+        await _repository.Received(1).FindAccounts("Smith", Arg.Any<CancellationToken>());
+        await _repository.Received(1).ListTrades(45, null, null, null, 1, Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetPositions(45, Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetPortfolioSummary(45, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task it_should_accept_the_boundary_values()
     {
         await _tools.GetTopMovers(count: 1);
