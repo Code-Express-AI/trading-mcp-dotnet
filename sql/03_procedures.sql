@@ -1,16 +1,12 @@
-/* =====================================================================
-   Layer 2: the MCP server only ever EXECUTEs these procedures.
-   Run AFTER 01_schema.sql and 02_security.sql, as an admin.
+/* The stored procedures: the only thing the MCP server can run. Safe to run again after changes.
 
-   Why this works: the mcp schema and the trading schema are both owned by dbo,
-   so SQL Server's "ownership chaining" lets a procedure read tables its caller
-   cannot touch directly. Every procedure below therefore acts as a hard cap on
-   what the agent can ask for (row limits, fixed columns, no free-form SQL).
-   NOTE: dynamic SQL (EXEC(@sql)) breaks the ownership chain - don't use it here.
+   Why this works: the mcp and trading schemas are both owned by dbo, so SQL Server's "ownership chaining"
+   lets a procedure read tables its caller can't touch. Each procedure is a hard cap on what the model can
+   ask for: fixed columns, row limits, no free-form SQL. Dynamic SQL (EXEC(@sql)) breaks the chain, so
+   don't use it in these procedures.
 
-   Errors numbered 50000+ (THROW) are argument problems only the database can spot, such as an
-   unknown ticker. The MCP server passes their messages straight to the model, so write them for it.
-   ===================================================================== */
+   Errors numbered 50000+ (THROW) are argument problems only the database can spot, such as an unknown
+   ticker. The MCP server passes their messages straight to the model, so write them for it. */
 
 /* Safety check: never create objects in a system database. */
 IF DB_NAME() IN (N'master', N'tempdb', N'model', N'msdb')
@@ -20,10 +16,11 @@ BEGIN
 END
 GO
 
-CREATE SCHEMA mcp;
+-- CREATE SCHEMA has to be the only statement in its batch, hence EXEC.
+IF SCHEMA_ID(N'mcp') IS NULL
+    EXEC(N'CREATE SCHEMA mcp');
 GO
 
-/* ---------- Orientation: what data is there? ---------- */
 CREATE OR ALTER PROCEDURE mcp.GetDatasetInfo
 AS
 BEGIN
@@ -36,7 +33,6 @@ BEGIN
 END
 GO
 
-/* ---------- Instruments ---------- */
 CREATE OR ALTER PROCEDURE mcp.SearchInstruments
     @Text NVARCHAR(100)
 AS
@@ -113,8 +109,6 @@ BEGIN
 END
 GO
 
-/* ---------- Clients, accounts, trades ---------- */
-
 /* AccountNumber comes back MASKED (Dynamic Data Masking), so the agent works with AccountId instead. */
 CREATE OR ALTER PROCEDURE mcp.FindAccounts
     @Name NVARCHAR(100)
@@ -134,7 +128,6 @@ BEGIN
 END
 GO
 
-/* 50 trades per page, newest first. */
 CREATE OR ALTER PROCEDURE mcp.ListTrades
     @AccountId INT,
     @From      DATE = NULL,
@@ -165,7 +158,6 @@ BEGIN
 END
 GO
 
-/* ---------- Portfolio ---------- */
 CREATE OR ALTER PROCEDURE mcp.GetPositions
     @AccountId INT
 AS
@@ -204,7 +196,7 @@ BEGIN
 END
 GO
 
-/* ---------- Audit (the only thing the MCP user can WRITE) ---------- */
+/* The only write mcp_reader can make. It can add audit rows but never read or change them. */
 CREATE OR ALTER PROCEDURE mcp.WriteAudit
     @Caller       NVARCHAR(200),
     @ToolName     NVARCHAR(100),
@@ -221,26 +213,9 @@ BEGIN
 END
 GO
 
-/* ---------- Tighten permissions: procedures only ---------- */
-
--- Undo the broad read access granted in 02_security.sql
-REVOKE SELECT ON SCHEMA::trading FROM mcp_reader;
-REVOKE INSERT ON trading.AuditLog FROM mcp_reader;
-
--- Explicitly deny direct table access. Ownership chaining still lets the procedures work.
-DENY SELECT, INSERT, UPDATE, DELETE, ALTER ON SCHEMA::trading TO mcp_reader;
-
--- The one thing the agent may do: run these procedures.
+-- The one thing mcp_reader may do: run these procedures.
 GRANT EXECUTE ON SCHEMA::mcp TO mcp_reader;
 GO
-
-/* Verify, connected as mcp_reader:
-     EXEC mcp.GetDatasetInfo;                    -- works
-     EXEC mcp.GetTopMovers;                      -- works
-     SELECT TOP 1 * FROM trading.Trades;         -- fails: SELECT permission denied
-     DELETE FROM trading.Trades;                 -- fails: DELETE permission denied
-     SELECT TOP 1 * FROM trading.AuditLog;       -- fails: SELECT permission denied
-*/
 
 SET NOEXEC OFF;   -- re-enable execution if the safety check above skipped the script
 GO

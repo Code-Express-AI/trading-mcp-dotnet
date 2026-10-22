@@ -62,7 +62,7 @@ Follow the first three guides in order for the complete local walkthrough. The c
 The `XTests` project has two kinds of test:
 
 - **Unit tests** check the logic on its own: option parsing, data generation, tool argument checks, authentication and auditing. They need nothing installed and run in under a second.
-- **Integration tests** run against the local Docker SQL Server. They load data into a throwaway database, call every stored procedure as `mcp_reader`, and prove that `mcp_reader` can't read or change the tables directly. If SQL Server isn't running, they're skipped rather than failed.
+- **Integration tests** run against the local Docker SQL Server. They load data into a throwaway database, call every stored procedure as `mcp_reader`, and prove that `mcp_reader` can't read or change the tables directly and that nobody, not even `sa`, can change the audit log. If SQL Server isn't running, they're skipped rather than failed.
 
 Run all the tests:
 
@@ -95,6 +95,7 @@ In VS Code, the `XTests: Run tests with coverage` task runs the same command. To
 - The MCP database user has **no table permissions**, only `EXECUTE` on a fixed set of stored procedures.
 - Procedures return fixed columns with hard row limits and use no dynamic SQL.
 - Sensitive columns are masked, and every tool call is written to an audit table.
+- The audit table is an append-only ledger table: rows can't be changed or deleted, even by `sa`, and SQL Server can verify that nothing has been tampered with.
 - Authentication uses named bearer tokens locally and Microsoft Entra ID in the production path. See [Entra ID setup and client limitations](docs/entra-setup.md).
 
 ## Tested with

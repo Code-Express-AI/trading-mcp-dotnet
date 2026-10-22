@@ -20,5 +20,5 @@ TestResults/
 !.vscode/extensions.json
 *.suo
 
-# Personal Claude Code context (not for the audience)
-CLAUDE.local.md
+# Personal notes and Claude Code context, not for the audience (CLAUDE.local.md, VIDEO-NOTES.local.md)
+*.local.md

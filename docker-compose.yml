@@ -45,7 +45,6 @@ services:
       MCP_READER_PASSWORD: ${MCP_READER_PASSWORD:?Copy .env.example to .env and set MCP_READER_PASSWORD}
       DB_NAME: ${DB_NAME:-TradingDemo}
       RECREATE: ${RECREATE:-0}
-      STAGE: ${STAGE:-3}                       # 2 = stop after 02_security.sql
     entrypoint: ["/bin/bash", "/init/init-db.sh"]
     volumes:
       - ./sql:/sql:ro

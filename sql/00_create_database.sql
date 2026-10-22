@@ -1,19 +1,11 @@
-/* =====================================================================
-   Step 0: create the (empty) TradingDemo database.
-   For SQL Server you run yourself (Docker, Developer edition, a VM).
-   Run connected to the master database as an admin (e.g. sa).
-
-   AZURE SQL DATABASE: skip this script. Create an empty database in the portal instead.
-   Azure SQL is always a "contained" database, so the setup below is built in.
-
-   After this, connect to TradingDemo (NOT master) before running 01, 02 and 03.
-   ===================================================================== */
+/* Creates the empty TradingDemo database. Run as an admin connected to master.
+   Azure SQL Database: skip this script and create the database in the portal. */
 
 USE master;
 GO
 
 -- Contained database authentication lets 02_security.sql use CREATE USER ... WITH PASSWORD,
--- exactly as on Azure SQL. That keeps the SQL scripts identical for local and cloud.
+-- as on Azure SQL, so the remaining scripts are the same locally and in the cloud.
 EXEC sp_configure 'contained database authentication', 1;
 RECONFIGURE;
 GO
@@ -23,4 +15,8 @@ IF DB_ID(N'TradingDemo') IS NULL
 GO
 
 ALTER DATABASE TradingDemo SET CONTAINMENT = PARTIAL;
+GO
+
+-- sys.sp_verify_database_ledger needs snapshot isolation. Azure SQL has it on already.
+ALTER DATABASE TradingDemo SET ALLOW_SNAPSHOT_ISOLATION ON;
 GO

@@ -65,4 +65,20 @@ In the Inspector browser window:
 
 The exact Inspector UI can vary by version. If it presents a bearer-token field, enter the token there; if it accepts custom headers, include the `Bearer ` prefix in the header value.
 
+## Check the audit log
+
+Every tool call, including rejected ones, is written to `trading.AuditLog`: who called, which tool, the arguments, how long it took and whether it succeeded. To see the latest calls, run this from the repository root, replacing `<SA_PASSWORD>` with the value from `.env`:
+
+```sh
+docker exec trading-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -C -U sa -P "<SA_PASSWORD>" -d TradingDemo -W -Q "SELECT TOP 5 OccurredAtUtc, Caller, ToolName, Success, Error FROM trading.AuditLog ORDER BY AuditId DESC"
+```
+
+The audit log is an append-only ledger table. Rows can be added but never changed or deleted, not even by `sa`. Try it:
+
+```sh
+docker exec trading-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -C -U sa -P "<SA_PASSWORD>" -d TradingDemo -Q "DELETE FROM trading.AuditLog"
+```
+
+SQL Server refuses with "Updates are not allowed for the append only Ledger table". It also keeps a hash chain through every row, so tampering with the data files themselves is detected by `sys.sp_verify_database_ledger`.
+
 Next: [Connect VS Code and Copilot](03-vscode-copilot.md).

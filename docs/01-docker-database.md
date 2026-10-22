@@ -48,10 +48,10 @@ Run `dotnet run -- --help` to see all the options, such as how many clients to c
 
 ## Use an existing SQL Server instead
 
-You can use an existing SQL Server or Azure SQL Database instead of Docker:
+You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead of Docker. Earlier versions won't work, because the audit table is a ledger table:
 
 1. For self-hosted SQL Server, run `sql/00_create_database.sql` as an administrator connected to `master`. For Azure SQL Database, create an empty database in Azure and skip this script.
-2. Connect to `TradingDemo` and run `sql/01_schema.sql`, then `sql/02_security.sql`. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`; keep it for the server connection string.
+2. Connect to `TradingDemo` and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`; keep it for the server connection string.
 3. Load the data as an administrator. Without Docker there's no `.env` file, so the connection string is required:
    ```sh
    cd DataGenerator
@@ -59,7 +59,6 @@ You can use an existing SQL Server or Azure SQL Database instead of Docker:
    cd ..
    ```
    To keep the password out of your shell history, set the connection string in the `TRADING_DB_CONNECTION` environment variable instead and leave it off the command.
-4. Run `sql/03_procedures.sql` as an administrator connected to `TradingDemo`.
 
 Use a connection string appropriate for your SQL Server. `TrustServerCertificate=True` is for the local Docker container; do not use it for Azure SQL. For Azure-specific firewall and deployment steps, see [Deploy to Azure](04-azure-deployment.md).
 

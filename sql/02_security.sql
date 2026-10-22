@@ -1,8 +1,4 @@
-/* =====================================================================
-   Least-privilege user for the MCP server.
-   Run AFTER 01_schema.sql, connected to the trading database as an admin.
-   (Azure SQL: a contained database user with a password - no server login needed.)
-   ===================================================================== */
+/* The least-privilege user the MCP server connects as. 03_procedures.sql grants the one thing it may do. */
 
 /* Safety check: never create objects in a system database. */
 IF DB_NAME() IN (N'master', N'tempdb', N'model', N'msdb')
@@ -12,31 +8,15 @@ BEGIN
 END
 GO
 
+-- A contained database user: no server login needed, so this works the same on Azure SQL.
 CREATE USER mcp_reader WITH PASSWORD = '<<replace-with-a-long-random-password>>';
 
--- LAYER 1: read everything in the trading schema (tables and views).
--- 03_procedures.sql later REVOKES this and leaves only EXECUTE on the mcp procedures (layer 2).
-GRANT SELECT ON SCHEMA::trading TO mcp_reader;
+-- No direct access to any table. Whatever the server code (or a prompt-injected model) tries,
+-- reads and writes fail at the database. The stored procedures in 03 are the only way in.
+DENY SELECT, INSERT, UPDATE, DELETE, ALTER ON SCHEMA::trading TO mcp_reader;
 
--- ...but the audit log is write-only for this user: it can add rows, never read or change them.
-DENY  SELECT ON trading.AuditLog TO mcp_reader;
-GRANT INSERT ON trading.AuditLog TO mcp_reader;
-
--- No UPDATE / DELETE / ALTER anywhere. Writes to business tables fail at the database,
--- regardless of what the application code (or a prompt-injected LLM) attempts.
-
-/* Dynamic Data Masking is already declared on Clients.Email and Accounts.AccountNumber.
-   mcp_reader does NOT have UNMASK, so those columns come back masked, e.g.
-       jXXX@XXXX.com      ACCXXXXX678
-   To demo the difference:  GRANT UNMASK TO mcp_reader;   /   REVOKE UNMASK FROM mcp_reader;
-   To hide sensitive data completely instead of masking it:
-       DENY SELECT ON trading.Clients(Email) TO mcp_reader;                          */
-
--- Quick check, run in a session connected as mcp_reader:
---   SELECT TOP 5 * FROM trading.Clients;                    -- works, Email masked
---   UPDATE trading.Clients SET Country = 'X';               -- fails: permission denied
---   SELECT TOP 1 * FROM trading.AuditLog;                   -- fails: permission denied
-
+-- Clients.Email and Accounts.AccountNumber are masked in 01_schema.sql. mcp_reader has no UNMASK
+-- permission, so it only ever sees masked values, e.g. ACCXXXXX678.
 GO
 
 SET NOEXEC OFF;   -- re-enable execution if the safety check above skipped the script

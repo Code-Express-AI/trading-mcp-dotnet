@@ -1,9 +1,4 @@
-/* =====================================================================
-   Trading demo database - schema
-   Target: Azure SQL Database / SQL Server 2019+
-   ALL DATA IS SYNTHETIC. Tickers/companies are invented; prices are simulated.
-   Run as an admin (e.g. the Azure SQL server admin), NOT as the MCP login.
-   ===================================================================== */
+/* Tables and views for the trading demo. Needs SQL Server 2022+ or Azure SQL Database (for the ledger table). */
 
 /* Safety check: never create objects in a system database. */
 IF DB_NAME() IN (N'master', N'tempdb', N'model', N'msdb')
@@ -16,8 +11,6 @@ GO
 CREATE SCHEMA trading;
 GO
 
-/* ---------- Reference data ---------------------------------------- */
-
 CREATE TABLE trading.Instruments (
     InstrumentId  INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Instruments PRIMARY KEY,
     Ticker        NVARCHAR(10)  NOT NULL CONSTRAINT UQ_Instruments_Ticker UNIQUE,
@@ -26,8 +19,8 @@ CREATE TABLE trading.Instruments (
     Currency      CHAR(3)       NOT NULL
 );
 
-/* Daily OHLCV bars. Composite PK doubles as the "latest price" lookup index.
-   (Column names avoid the reserved words OPEN / CLOSE.) */
+/* Daily prices. The primary key doubles as the index for "latest price" lookups.
+   The columns are OpenPrice and ClosePrice because OPEN and CLOSE are reserved words. */
 CREATE TABLE trading.Prices (
     InstrumentId  INT           NOT NULL CONSTRAINT FK_Prices_Instruments REFERENCES trading.Instruments(InstrumentId),
     PriceDate     DATE          NOT NULL,
@@ -42,8 +35,6 @@ CREATE TABLE trading.Prices (
                                    AND LowPrice  <= OpenPrice AND LowPrice  <= ClosePrice),
     CONSTRAINT CK_Prices_Positive CHECK (LowPrice > 0 AND Volume >= 0)
 );
-
-/* ---------- Clients & accounts ------------------------------------ */
 
 CREATE TABLE trading.Clients (
     ClientId     INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Clients PRIMARY KEY,
@@ -67,8 +58,6 @@ CREATE TABLE trading.Accounts (
 );
 CREATE INDEX IX_Accounts_ClientId ON trading.Accounts(ClientId);
 
-/* ---------- Trades -------------------------------------------------- */
-
 CREATE TABLE trading.Trades (
     TradeId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Trades PRIMARY KEY,
     AccountId       INT           NOT NULL CONSTRAINT FK_Trades_Accounts    REFERENCES trading.Accounts(AccountId),
@@ -86,7 +75,10 @@ CREATE INDEX IX_Trades_Account_Time ON trading.Trades(AccountId, TradeTimestamp 
     INCLUDE (InstrumentId, Side, Quantity, Price, Fees, Status);
 CREATE INDEX IX_Trades_Instrument_Time ON trading.Trades(InstrumentId, TradeTimestamp DESC);
 
-/* ---------- Audit log (written by the MCP server) ------------------- */
+/* Written by the MCP server, one row per tool call.
+   An append-only ledger table: rows can be added but never updated or deleted, not even by sa.
+   SQL Server also chains a hash through every row, so tampering with the data files is detected
+   by sys.sp_verify_database_ledger. */
 
 CREATE TABLE trading.AuditLog (
     AuditId        BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AuditLog PRIMARY KEY,
@@ -98,14 +90,11 @@ CREATE TABLE trading.AuditLog (
     DurationMs     INT           NULL,
     Success        BIT           NOT NULL,
     Error          NVARCHAR(500) NULL
-);
+) WITH (LEDGER = ON (APPEND_ONLY = ON));
 GO
 
-/* ---------- Views: derived data, so nothing is stored twice ----------- */
-
-/* Net holdings per account/instrument, derived from trades.
-   AvgBuyPrice is deliberately simple (average of BUY prices). Real systems
-   track tax lots / FIFO; this demo keeps it simple. */
+/* Positions are derived from trades, so nothing is stored twice.
+   AvgBuyPrice is simply the average of all buy prices; real systems track tax lots or FIFO. */
 CREATE VIEW trading.v_Positions AS
 SELECT  t.AccountId,
         t.InstrumentId,

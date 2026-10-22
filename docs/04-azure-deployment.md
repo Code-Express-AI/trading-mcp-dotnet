@@ -5,14 +5,13 @@ This guide outlines the Azure path: host the database in Azure SQL, deploy the M
 ## Create and prepare Azure SQL
 
 1. Create an Azure SQL logical server and an empty Azure SQL Database. Configure a firewall rule that allows your development machine to connect while you set it up.
-2. Connect to the new database as its administrator and run `sql/01_schema.sql`, then `sql/02_security.sql`. In `02_security.sql`, replace the password placeholder with a strong password for the contained `mcp_reader` user.
+2. Connect to the new database as its administrator and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for the contained `mcp_reader` user.
 3. Generate the synthetic data from your development machine, connecting `DataGenerator` as a database administrator. The machine's IP must be allowed by the SQL firewall:
    ```sh
    cd DataGenerator
    dotnet run -- "Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True;TrustServerCertificate=False" --reset
    cd ..
    ```
-4. Run `sql/03_procedures.sql` as an administrator connected to the Azure SQL database.
 
 Use the same `mcp_reader` password in the server's database connection string. Do not use `TrustServerCertificate=True` with Azure SQL.
 
@@ -44,5 +43,6 @@ After deployment:
 - Check `https://<app-name>.azurewebsites.net/health`.
 - Use an MCP client that can send an `Authorization: Bearer <token>` header to connect to `https://<app-name>.azurewebsites.net/mcp`.
 - Try a read-only tool call and verify the caller appears in the database audit log.
+- Optionally, turn on automatic digest storage for the ledger (in the Azure portal, under the database's **Ledger** settings). Azure SQL then saves the audit log's hash chain to immutable storage, so even someone with full control of the database server can't quietly rewrite it.
 
 Test your chosen interactive client before relying on it: Entra's OAuth registration flow is not supported by every MCP client. See the limitations and troubleshooting in the [Entra guide](entra-setup.md).

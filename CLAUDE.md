@@ -40,10 +40,10 @@ To add a tool:
 
 ## Security rules (do not weaken)
 
-- The `mcp_reader` database user ends up with `EXECUTE` on the `mcp` schema only, plus explicit `DENY` on the `trading` tables. The broad `SELECT` in `02_security.sql` is a deliberate first step, and `03_procedures.sql` revokes it.
+- The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on the `mcp` schema (`03_procedures.sql`), nothing else.
 - Never add dynamic SQL, raw-query tools, or write operations on business tables.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
-- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`.
+- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`, an append-only ledger table. Never make it updatable.
 
 ## Docs conventions
 
