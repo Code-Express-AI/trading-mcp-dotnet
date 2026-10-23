@@ -192,3 +192,5 @@ MIT. See [LICENSE](LICENSE).
 ---
 
 Made by Liam from [Code Express AI](https://codeexpress.ai). Check out my tutorials on [YouTube](https://www.youtube.com/@CodeExpressAI).
+
+Connecting AI to your own systems? [Book a free 30-minute call](https://codeexpress.ai) and we'll talk it through.
