@@ -6,7 +6,7 @@ namespace XTests.Integration;
 
 // The local Docker SQL Server, using the passwords in the repository's .env file.
 // If SQL Server isn't running or has no data, the integration tests are skipped with the reason, not failed,
-// so `dotnet test` still passes on a machine without Docker.
+// so `dotnet test` still passes on a machine without Docker. On CI, When_Ci_Build_Is_Run fails instead.
 internal static class IntegrationDatabase
 {
     private static readonly Lazy<string> RepositoryRoot = new(FindRepositoryRoot);
@@ -77,11 +77,11 @@ internal static class IntegrationDatabase
             using var command = new SqlCommand("SELECT COUNT(*) FROM trading.Instruments", connection);
             return (int)command.ExecuteScalar()! > 0
                 ? null
-                : "The database has no data. Load it with: cd DataGenerator && dotnet run -- --reset";
+                : "The database has no data. Load it with: dotnet run --project DataGenerator -- --reset";
         }
         catch (SqlException exception)
         {
-            return $"SQL Server isn't available, so the integration tests were skipped. Start it with: docker compose up -d ({exception.Message})";
+            return $"SQL Server isn't available, so the integration tests were skipped. Is Docker running? Start SQL Server with: docker compose up -d --wait ({exception.Message})";
         }
     }
 

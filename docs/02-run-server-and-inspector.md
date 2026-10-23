@@ -28,7 +28,7 @@ To check the server is up, open [http://localhost:5080/health](http://localhost:
 
 [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is the MCP project's official testing tool. It acts as an MCP client, like Copilot, but without a model: you choose which tool to call and with which arguments, and you see exactly what comes back. If something works in Inspector but not in Copilot, the problem is in the host's configuration, not the server.
 
-Inspector needs [Node.js](https://nodejs.org/). This is the only part of the project that does.
+Inspector needs [Node.js](https://nodejs.org/). This is the only part of the project that does. If you'd rather not install it, [Postman](https://www.postman.com/) can also connect to MCP servers: create an MCP request, and use the same URL and header shown below.
 
 ### Use the web interface
 

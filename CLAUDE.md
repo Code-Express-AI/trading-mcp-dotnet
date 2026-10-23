@@ -41,7 +41,7 @@ To add a tool:
 ## Tests
 
 - Test classes are named `When_<Something>_Is_<Done>`, with the subject split into words (`When_Data_Loader_Is_Run`). Test methods are `it_should_<outcome>`.
-- Integration tests carry `[Trait("Category", "Integration")]` and use `[IntegrationFact]`, which skips them when SQL Server isn't running.
+- Integration tests carry `[Trait("Category", "Integration")]` and use `[IntegrationFact]`, which skips them when SQL Server isn't running. On CI, `When_Ci_Build_Is_Run` fails instead, so a broken database step can't hide behind skipped tests.
 - xUnit v3 runs on the classic VSTest runner (`IsTestingPlatformApplication=false` in `XTests.csproj`). Don't switch to Microsoft Testing Platform: it breaks `dotnet test`, the `--filter` syntax, coverage and CI.
 
 ## Gotchas
