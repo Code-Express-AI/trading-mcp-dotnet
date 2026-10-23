@@ -64,11 +64,11 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
     [Description("Finds client accounts by (part of) the client's name. Returns at most 25. " +
                  "Account numbers are masked for privacy, so use the returned accountId in the other tools.")]
     public Task<IReadOnlyList<Account>> FindAccounts(
-        [Description("At least 2 characters of the client's name, e.g. 'Tillman'.")] string name,
+        [Description("At least 2 characters of the client's name, e.g. 'Thompson'.")] string name,
         CancellationToken ct = default) =>
         audit.RunAsync("find_accounts", new { name }, () =>
         {
-            ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Tillman'.");
+            ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
             return repo.FindAccounts(name!, ct);
         });
 

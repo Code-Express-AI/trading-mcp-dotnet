@@ -99,12 +99,12 @@ Many MCP database examples give the model a tool that runs any SQL it writes. Th
 | `search_instruments` | Which pharma companies are listed? |
 | `get_price_history` | How has Brightwater Pharma's share price moved this year? |
 | `get_top_movers` | What were the biggest movers on the last trading day? |
-| `find_accounts` | Find the accounts for a client called Tillman. |
+| `find_accounts` | Find the accounts for a client called Thompson. |
 | `list_trades` | What did that account trade last month? |
 | `get_positions` | What does that account hold, and is it up or down? |
 | `get_portfolio_summary` | Summarise that account's portfolio by sector. |
 
-You ask in plain English, and the model picks the tools, often several for one question. For example, "Do any of Tillman's accounts hold yesterday's three biggest losers?" uses `find_accounts`, `get_top_movers` and `get_positions`.
+You ask in plain English, and the model picks the tools, often several for one question. For example, "Do any of Thompson's accounts hold yesterday's three biggest losers?" uses `find_accounts`, `get_top_movers` and `get_positions`.
 
 ## Where to look in the code
 

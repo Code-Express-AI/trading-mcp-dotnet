@@ -21,6 +21,6 @@ A local model also means the trading data never leaves your machine, which matte
 4. Switch to **Agent** mode and check that the `trading` tools are selected in the tools picker.
 5. Ask a question, for example: "What were the five biggest movers on the last trading day? Which ones were losers?"
 
-Start with simple questions. Smaller models handle one or two tool calls well, but may lose track of questions that need several in a row, such as the Tillman example in guide 3.
+Start with simple questions. Smaller models handle one or two tool calls well, but may lose track of questions that need several in a row, such as the Thompson example in guide 3.
 
 If the tools don't appear, check the model is selected in Agent mode, then test the server with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector). Support for local models and tool calling varies between VS Code, extension and model versions; see the [Ollama VS Code guide](https://docs.ollama.com/integrations/vscode) for the current requirements.

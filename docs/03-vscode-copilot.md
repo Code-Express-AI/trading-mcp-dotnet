@@ -45,14 +45,14 @@ Try these:
 - "What data is available, and what's the latest price date?"
 - "What were the five biggest movers on the last trading day? Which ones were losers?"
 - "How has Brightwater Pharma's share price moved this year?"
-- "Find the accounts for clients called Tillman, and summarise one of their portfolios by sector."
-- "Do any of Tillman's accounts hold yesterday's three biggest losers?"
+- "Find the accounts for clients called Thompson, and summarise one of their portfolios by sector."
+- "Do any of Thompson's accounts hold yesterday's three biggest losers?"
 
 The last two need several tools in a row. Copilot shows each tool call as it makes it, so you can see how it breaks the question down.
 
 Now ask it to change something:
 
-- "Delete all of Carey Tillman's trades."
+- "Delete all of Tessie Thompson's trades."
 
 It can't. None of the tools can change data, and even if one tried, the database login has no permission to.
 

@@ -103,7 +103,7 @@ Connect to the database twice, first as `sa` and then as `mcp_reader`, and run t
 
 ```sql
 SELECT TOP 5 FullName, Email FROM trading.Clients;   -- real email addresses
-EXEC mcp.FindAccounts @Name = N'Tillman';             -- full account numbers
+EXEC mcp.FindAccounts @Name = N'Thompson';            -- full account numbers
 DELETE FROM trading.AuditLog;                         -- refused: append-only ledger table
 ```
 
@@ -111,7 +111,7 @@ DELETE FROM trading.AuditLog;                         -- refused: append-only le
 
 ```sql
 SELECT TOP 5 FullName, Email FROM trading.Clients;   -- refused: no permission on the table
-EXEC mcp.FindAccounts @Name = N'Tillman';             -- works, but account numbers are masked
+EXEC mcp.FindAccounts @Name = N'Thompson';            -- works, but account numbers are masked
 EXEC mcp.GetTopMovers @Count = 100;                   -- returns at most 20 rows
 EXEC mcp.GetPriceHistory @Ticker = N'NOPE';           -- refused: "Unknown ticker..."
 DELETE FROM trading.Trades;                           -- refused: no permission on the table

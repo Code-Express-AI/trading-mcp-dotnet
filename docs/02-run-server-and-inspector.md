@@ -51,7 +51,7 @@ Inspector's screens change between versions, so the labels may differ slightly, 
 
 **Look at the tools.** Open the tools list. You should see all eight tools. Select one to see its description and arguments. These descriptions are exactly what a model reads when it decides which tool to call, which is why they're written as instructions for the model.
 
-**Call some tools.** Run `get_dataset_info` with no arguments, then `get_top_movers` with `count` set to `3`, then `find_accounts` with `name` set to `Tillman`. The results come back as JSON, as a model would receive them.
+**Call some tools.** Run `get_dataset_info` with no arguments, then `get_top_movers` with `count` set to `3`, then `find_accounts` with `name` set to `Thompson`. The results come back as JSON, as a model would receive them.
 
 **Try the guards.** Now give the tools bad arguments:
 
