@@ -60,7 +60,39 @@ Copilot may ask you to approve each tool call before it runs. That's VS Code's o
 
 ## Use Claude Code instead
 
-[Claude Code](https://code.claude.com/docs) can use the same server. It needs a Claude subscription or an Anthropic API key, so unlike the rest of the project it isn't free.
+[Claude Code](https://code.claude.com/docs) can use the same server. It needs a paid Claude plan (Pro or above) or an Anthropic API key, so unlike the rest of the project it isn't free.
+
+If the `claude` command isn't installed yet, install it, open a new terminal, and check it with `claude --version`:
+
+Windows (PowerShell):
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+macOS / Linux:
+
+```sh
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+The installer shows nothing while it downloads, which can take a minute or two, so give it time. The Claude Code extension for VS Code doesn't add the `claude` command, so install it even if you already use the extension. For other install options, see the [setup guide](https://code.claude.com/docs/en/setup).
+
+If a new terminal still says `claude` isn't found, the install folder isn't on your PATH. Add it, then open another new terminal:
+
+Windows (PowerShell):
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$env:USERPROFILE\.local\bin", "User")
+```
+
+macOS / Linux (on Linux with bash, use `~/.bashrc` instead of `~/.zshrc`):
+
+```sh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+```
+
+If it still isn't found, see [Fix your PATH](https://code.claude.com/docs/en/troubleshoot-install#command-not-found-claude-after-installation).
 
 With the server still running, run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
 
@@ -68,15 +100,19 @@ With the server still running, run this from the repository root, replacing `<to
 claude mcp add --transport http trading http://localhost:5080/mcp --header "Authorization: Bearer <token>"
 ```
 
-This adds the server for this project only. Claude Code stores it in `.claude.json` in your home folder, not in the repository. Don't add `--scope project`: that writes the server, token included, to `.mcp.json` in the repository, where it could be committed.
+This adds the server only for the folder you run it in, so run it from the repository root, not your home folder. The output should end with `[project: <path to the repository>]`. Claude Code stores it in `.claude.json` in your home folder, not in the repository. Don't add `--scope project`: that writes the server, token included, to `.mcp.json` in the repository, where it could be committed.
 
-Start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
+Start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
 
 ## Troubleshooting
 
 - **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
 - **401 or "unauthorized" errors:** the token doesn't match. VS Code remembers the token you entered, so to enter it again, change the input's `id` (for example to `trading-mcp-token-2`) in both places in the configuration, then restart the `trading` server.
+- **VS Code says authorisation is required but never asks for the token:** it's reusing a value you entered before. Change the input's `id` in both places, then start the server again. If it still doesn't ask, start it from the tools picker in Copilot Chat instead.
+- **If all else fails, hard-code the token:** in your user configuration, replace `${input:trading-mcp-token}` with the `MCP_TOKEN` value, so the header reads `"Bearer <token>"`, and delete the `inputs` block. The token is then stored as plain text, but only in your user configuration, not in the repository, and it only works against your local server. Never do this in a `.vscode/mcp.json` file inside a repository, where it could be committed.
 - **Claude Code shows `trading` as failed, with a 401:** the token doesn't match. Run `claude mcp remove trading`, then add it again with the right token.
+- **Claude Code doesn't list `trading` in `/mcp` at all:** either the session started before you added the server, so start a new one, or you ran `claude mcp add` from a different folder. Run `claude mcp list` from the repository root to check, and add it again from there if it's missing.
+- **Still stuck installing Claude Code:** if you have the Claude Code extension in VS Code, ask it to add the `claude` install folder to your PATH.
 - **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
 
 ## Other MCP hosts

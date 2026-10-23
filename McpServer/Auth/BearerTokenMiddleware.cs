@@ -19,7 +19,7 @@ internal sealed class BearerTokenMiddleware(RequestDelegate next, BearerToken[] 
     private const int MinTokenLength = 32;
 
     private const string SetTokenHint =
-        "From the McpServer folder, run: dotnet user-secrets set \"Mcp:Tokens:inspector\" \"<random token of 32+ characters>\"";
+        "From the repository root, run: dotnet user-secrets set \"Mcp:Tokens:inspector\" \"<random token of 32+ characters>\" --project McpServer";
 
     // Called while the app is built, so a missing or weak token stops the server before it starts.
     // Only hashes are kept in memory; comparison is on equal-length digests.

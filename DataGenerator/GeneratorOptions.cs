@@ -14,10 +14,13 @@ internal sealed record GeneratorOptions
 
     public const string HelpText = """
         Generates synthetic trading data and loads it into the TradingDemo database.
+        Run from the repository root.
 
         Usage:
-          dotnet run -- [options]                          Docker setup: uses SA_PASSWORD from the .env file
-          dotnet run -- "<connection string>" [options]    Any other SQL Server
+          dotnet run --project DataGenerator -- [options]
+              Docker setup: uses SA_PASSWORD from the .env file.
+          dotnet run --project DataGenerator -- "<connection string>" [options]
+              Any other SQL Server.
 
         For any other SQL Server, the connection string can also be set in the TRADING_DB_CONNECTION
         environment variable. Connect as sa (or another admin), not as mcp_reader.
@@ -34,8 +37,8 @@ internal sealed record GeneratorOptions
           --help, -h                  Show this help.
 
         Examples:
-          dotnet run -- --reset
-          dotnet run -- "Server=myserver;Database=TradingDemo;User ID=myadmin;Password=<password>;Encrypt=True" --reset
+          dotnet run --project DataGenerator -- --reset
+          dotnet run --project DataGenerator -- "Server=myserver;Database=TradingDemo;User ID=myadmin;Password=<password>;Encrypt=True" --reset
         """;
 
     public required string ConnectionString { get; init; }
