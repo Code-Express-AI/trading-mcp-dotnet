@@ -8,6 +8,7 @@ namespace TradingMcp;
 internal static class McpServerApplication
 {
     private const string UserSecretsHint = "See docs/02-run-server-and-inspector.md for the user-secrets commands.";
+    internal const int MaxRequestBodyBytes = 64 * 1024;
 
     public static WebApplication Build(string[] args)
     {
@@ -16,6 +17,10 @@ internal static class McpServerApplication
         var envFilePath = UseEnvFileInDevelopment(builder);
         var connectionString = RequireConnectionString(configuration);
         var useEntra = UsesEntraAuthentication(configuration);
+
+        // MCP tool calls are a few hundred bytes. Reject anything bigger than 64 KB before it's even parsed,
+        // instead of Kestrel's default of 30 MB.
+        builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
 
         builder.Services.AddSingleton<Func<SqlConnection>>(_ => () => new SqlConnection(connectionString));
         builder.Services.AddSingleton<ITradingRepository, TradingRepository>();

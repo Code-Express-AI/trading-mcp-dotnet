@@ -20,17 +20,21 @@ public class When_Trading_Tools_Are_Called
     public static TheoryData<string, Func<TradingTools, Task>, string> InvalidCalls => new()
     {
         { "search_instruments", tools => tools.SearchInstruments(" "), "text must not be empty, for example 'MAR' or 'Pharma'." },
+        { "search_instruments", tools => tools.SearchInstruments(new string('x', 101)), "text must be at most 100 characters." },
         { "get_price_history", tools => tools.GetPriceHistory(""), "ticker must not be empty. Use search_instruments to find one." },
+        { "get_price_history", tools => tools.GetPriceHistory("MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
         { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 0), "count must be between 1 and 20." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 21), "count must be between 1 and 20." },
         { "find_accounts", tools => tools.FindAccounts("a"), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(" a "), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(null!), "name must be at least 2 characters, for example 'Thompson'." },
+        { "find_accounts", tools => tools.FindAccounts(new string('x', 101)), "name must be at most 100 characters." },
         { "list_trades", tools => tools.ListTrades(0), "accountId must be a positive number. Use find_accounts to look it up." },
         { "list_trades", tools => tools.ListTrades(1, new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
         { "list_trades", tools => tools.ListTrades(1, page: 0), "page must be between 1 and 1000." },
         { "list_trades", tools => tools.ListTrades(1, page: 1001), "page must be between 1 and 1000." },
+        { "list_trades", tools => tools.ListTrades(1, ticker: "MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
         { "get_positions", tools => tools.GetPositions(-1), "accountId must be a positive number. Use find_accounts to look it up." },
         { "get_portfolio_summary", tools => tools.GetPortfolioSummary(0), "accountId must be a positive number. Use find_accounts to look it up." }
     };
@@ -103,8 +107,12 @@ public class When_Trading_Tools_Are_Called
         await _tools.GetTopMovers(count: 20);
         await _tools.FindAccounts("Al");
         await _tools.ListTrades(1, page: 1000);
+        await _tools.SearchInstruments(new string('x', 100));
+        await _tools.FindAccounts(new string('x', 100));
+        await _tools.GetPriceHistory(new string('X', 10));
+        await _tools.ListTrades(1, ticker: new string('X', 10));
 
-        Assert.Equal(4, _repository.ReceivedCalls().Count());
+        Assert.Equal(8, _repository.ReceivedCalls().Count());
     }
 
     private sealed class RecordingAuditService : IAuditService

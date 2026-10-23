@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,6 +119,16 @@ public class When_Mcp_Server_Application_Is_Built
         Assert.NotNull(application.Services.GetRequiredService<IAuditService>());
         Assert.Single(application.Services.GetRequiredService<BearerToken[]>());
         Assert.NotNull(application.Services.GetRequiredService<IOptions<RateLimiterOptions>>().Value.GlobalLimiter);
+    }
+
+    [Fact]
+    public async Task it_should_limit_request_bodies_to_64_kilobytes()
+    {
+        await using var application = McpServerApplication.Build([ConnectionString, Token]);
+
+        var kestrel = application.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value;
+
+        Assert.Equal(64 * 1024, kestrel.Limits.MaxRequestBodySize);
     }
 
     [Fact]

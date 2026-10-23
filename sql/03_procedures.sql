@@ -41,9 +41,12 @@ BEGIN
     SET @Text = LTRIM(RTRIM(@Text));
     IF LEN(@Text) < 1 RETURN;
 
+    /* Escape LIKE wildcards so '%' or '_' match literally instead of matching everything. */
+    DECLARE @Pattern NVARCHAR(300) = REPLACE(REPLACE(REPLACE(@Text, '[', '[[]'), '%', '[%]'), '_', '[_]');
+
     SELECT TOP (25) Ticker, Name, Sector, Currency
     FROM   trading.Instruments
-    WHERE  Ticker LIKE @Text + '%' OR Name LIKE '%' + @Text + '%'
+    WHERE  Ticker LIKE @Pattern + '%' OR Name LIKE '%' + @Pattern + '%'
     ORDER BY Ticker;
 END
 GO
@@ -118,12 +121,15 @@ BEGIN
     SET @Name = LTRIM(RTRIM(@Name));
     IF LEN(@Name) < 2 RETURN;
 
+    /* Escape LIKE wildcards, otherwise '%%' passes the 2-character minimum and matches every client. */
+    DECLARE @Pattern NVARCHAR(300) = REPLACE(REPLACE(REPLACE(@Name, '[', '[[]'), '%', '[%]'), '_', '[_]');
+
     SELECT TOP (25)
            a.AccountId, a.AccountNumber, c.FullName AS ClientName, c.Country, c.RiskProfile,
            a.AccountType, a.BaseCurrency, a.OpenedOn
     FROM   trading.Accounts a
     JOIN   trading.Clients  c ON c.ClientId = a.ClientId
-    WHERE  c.FullName LIKE '%' + @Name + '%'
+    WHERE  c.FullName LIKE '%' + @Pattern + '%'
     ORDER BY c.FullName, a.AccountId;
 END
 GO

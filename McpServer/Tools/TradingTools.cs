@@ -29,6 +29,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         audit.RunAsync("search_instruments", new { text }, () =>
         {
             ToolArguments.Require(!string.IsNullOrWhiteSpace(text), "text must not be empty, for example 'MAR' or 'Pharma'.");
+            ToolArguments.Require(text.Length <= 100, "text must be at most 100 characters.");
             return repo.SearchInstruments(text, ct);
         });
 
@@ -43,6 +44,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         audit.RunAsync("get_price_history", new { ticker, from, to }, () =>
         {
             ToolArguments.Require(!string.IsNullOrWhiteSpace(ticker), "ticker must not be empty. Use search_instruments to find one.");
+            ToolArguments.Require(ticker.Length <= 10, "ticker must be at most 10 characters. Use search_instruments to find one.");
             ToolArguments.RequireDateRange(from, to);
             return repo.GetPriceHistory(ticker, from, to, ct);
         });
@@ -69,7 +71,8 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         audit.RunAsync("find_accounts", new { name }, () =>
         {
             ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
-            return repo.FindAccounts(name!, ct);
+            ToolArguments.Require(name!.Length <= 100, "name must be at most 100 characters.");
+            return repo.FindAccounts(name, ct);
         });
 
     [McpServerTool(Name = "list_trades", ReadOnly = true)]
@@ -86,6 +89,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
             ToolArguments.RequireAccountId(accountId);
             ToolArguments.RequireDateRange(from, to);
             ToolArguments.Require(page is >= 1 and <= 1000, "page must be between 1 and 1000.");
+            ToolArguments.Require(ticker is null || ticker.Length <= 10, "ticker must be at most 10 characters. Use search_instruments to find one.");
             return repo.ListTrades(accountId, from, to, ticker, page, ct);
         });
 

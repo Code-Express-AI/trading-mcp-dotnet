@@ -48,6 +48,15 @@ public class When_Trading_Repository_Is_Queried
     }
 
     [IntegrationFact]
+    public async Task it_should_treat_like_wildcards_in_search_text_as_literal_characters()
+    {
+        Assert.Empty(await _repository.FindAccounts("%%", default));
+        Assert.Empty(await _repository.FindAccounts("__", default));
+        Assert.Empty(await _repository.SearchInstruments("%", default));
+        Assert.Empty(await _repository.SearchInstruments("_", default));
+    }
+
+    [IntegrationFact]
     public async Task it_should_report_an_unknown_ticker_as_an_argument_problem_for_the_model()
     {
         var exception = await Assert.ThrowsAsync<ToolArgumentException>(() => _repository.GetPriceHistory("NOPE", null, null, default));
