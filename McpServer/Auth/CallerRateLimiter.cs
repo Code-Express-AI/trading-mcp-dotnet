@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
@@ -16,7 +17,20 @@ internal static class CallerRateLimiter
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.GlobalLimiter = GetRateLimiter();
+            options.OnRejected = AddRetryAfterHeader;
         });
+    }
+
+    internal static ValueTask AddRetryAfterHeader(OnRejectedContext context, CancellationToken cancellationToken)
+    {
+        if (!context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        var seconds = (int)Math.Ceiling(retryAfter.TotalSeconds);
+        context.HttpContext.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+        return ValueTask.CompletedTask;
     }
 
     internal static PartitionedRateLimiter<HttpContext> GetRateLimiter()

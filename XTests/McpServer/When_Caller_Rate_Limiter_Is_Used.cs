@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using TradingMcp.Auth;
 
 namespace XTests.McpServer;
@@ -42,6 +43,26 @@ public class When_Caller_Rate_Limiter_Is_Used
         using var rejectedLease = await limiter.AcquireAsync(secondRequest);
 
         Assert.False(rejectedLease.IsAcquired);
+    }
+
+    [Fact]
+    public async Task it_should_tell_a_rejected_caller_when_to_retry()
+    {
+        using var limiter = CallerRateLimiter.GetRateLimiter();
+        var caller = CreateContext("inspector");
+
+        for (var request = 0; request < 120; request++)
+        {
+            using var lease = await limiter.AcquireAsync(caller);
+        }
+
+        using var rejectedLease = await limiter.AcquireAsync(caller);
+        await CallerRateLimiter.AddRetryAfterHeader(
+            new OnRejectedContext { HttpContext = caller, Lease = rejectedLease },
+            CancellationToken.None);
+
+        var seconds = int.Parse(caller.Response.Headers.RetryAfter!);
+        Assert.InRange(seconds, 1, 60);
     }
 
     private static HttpContext CreateContext(string callerName)
