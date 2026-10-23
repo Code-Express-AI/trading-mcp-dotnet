@@ -1,6 +1,6 @@
 # 3. Ask questions from VS Code and Copilot
 
-This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English.
+This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English. To use Claude Code instead, see [Use Claude Code instead](#use-claude-code-instead).
 
 Complete [guide 1](01-docker-database.md), and keep the server from [guide 2](02-run-server-and-inspector.md) running at `http://localhost:5080`.
 
@@ -58,10 +58,25 @@ It can't. None of the tools can change data, and even if one tried, the database
 
 Copilot may ask you to approve each tool call before it runs. That's VS Code's own safeguard, and a good one to leave switched on.
 
+## Use Claude Code instead
+
+[Claude Code](https://code.claude.com/docs) can use the same server. It needs a Claude subscription or an Anthropic API key, so unlike the rest of the project it isn't free.
+
+With the server still running, run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
+
+```sh
+claude mcp add --transport http trading http://localhost:5080/mcp --header "Authorization: Bearer <token>"
+```
+
+This adds the server for this project only. Claude Code stores it in `.claude.json` in your home folder, not in the repository. Don't add `--scope project`: that writes the server, token included, to `.mcp.json` in the repository, where it could be committed.
+
+Start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
+
 ## Troubleshooting
 
 - **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
 - **401 or "unauthorized" errors:** the token doesn't match. VS Code remembers the token you entered, so to enter it again, change the input's `id` (for example to `trading-mcp-token-2`) in both places in the configuration, then restart the `trading` server.
+- **Claude Code shows `trading` as failed, with a 401:** the token doesn't match. Run `claude mcp remove trading`, then add it again with the right token.
 - **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
 
 ## Other MCP hosts

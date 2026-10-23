@@ -10,11 +10,11 @@ This project uses MCP to connect AI assistants, such as GitHub Copilot or Claude
 
 ## What is MCP?
 
-MCP (Model Context Protocol) is the open standard that lets AI assistants discover and call tools in your own systems. In .NET, turning a method into an MCP tool takes just one attribute: `[McpServerTool]`. Making it safe to point at a real database is the hard part, and that's what this project shows.
+MCP (Model Context Protocol) is the open standard that lets AI assistants discover and call tools in your own systems. If you've built a web API, you already know most of it. The difference is who calls it: not code you wrote, but an AI assistant that reads each tool's description and decides for itself what to call. In .NET, turning a method into an MCP tool takes just one attribute: `[McpServerTool]`. Making it safe to point at a real database is the hard part, and that's what this project shows.
 
 ## What you'll learn
 
-How to:
+We'll show you how to:
 
 - **Build a real MCP server, not hello world:** eight read-only tools that work together, descriptions that help the model pick the right tool, errors the model can act on, auditing, rate limiting and tests.
 - **Lock it down in layers, so each security layer holds even if the one above fails:** token authentication, rate limits, fixed tools, stored-procedure-only database access, data masking, and an audit log that can't be changed, even by `sa`.
@@ -71,7 +71,7 @@ Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-insp
 
 | # | Video | Guide |
 |---|-------|-------|
-| 1 | Intro demo: Copilot answers questions from the database, and can't delete anything | – |
+| 1 | Intro demo: Copilot answers questions from the database, but our security layers stop it deleting anything | – |
 | 2 | Set up SQL Server in Docker, and the database security behind it | [Guide 1](docs/01-docker-database.md) |
 | 3 | Test the server with MCP Inspector, then connect Copilot | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-vscode-copilot.md) |
 
@@ -87,7 +87,7 @@ flowchart LR
     S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · masking<br/>ledger audit log")]
 ```
 
-Many MCP database examples give the model a tool that runs any SQL it writes. This one doesn't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
+Many MCP database examples give the model a tool that runs any SQL it writes. We don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
 
 - **Server:** ASP.NET Core minimal API and Dapper
 - **Database:** SQL Server, accessed only through stored procedures
@@ -107,15 +107,36 @@ Many MCP database examples give the model a tool that runs any SQL it writes. Th
 | `get_positions` | What does that account hold, and is it up or down? |
 | `get_portfolio_summary` | Summarise that account's portfolio by sector. |
 
-You ask in plain English, and the model picks the tools, often several for one question. For example, "Do any of Thompson's accounts hold yesterday's three biggest losers?" uses `find_accounts`, `get_top_movers` and `get_positions`.
+You ask in plain English, and the model picks the tools, often several for one question. For example, "Do any of Thompson's accounts hold yesterday's three biggest losers?" uses `find_accounts`, `get_top_movers` and `get_positions`. Our tools only return rows of data as JSON. The model combines them into the answer, as the demo at the top of this page shows.
+
+Each tool is a few lines. Here's `find_accounts`, from [TradingTools.cs](McpServer/Tools/TradingTools.cs):
+
+```csharp
+[McpServerTool(Name = "find_accounts", ReadOnly = true)]
+[Description("Finds client accounts by (part of) the client's name. Returns at most 25. " +
+             "Account numbers are masked for privacy, so use the returned accountId in the other tools.")]
+public Task<IReadOnlyList<Account>> FindAccounts(
+    [Description("At least 2 characters of the client's name, e.g. 'Thompson'.")] string name,
+    CancellationToken ct = default) =>
+    audit.RunAsync("find_accounts", new { name }, () =>
+    {
+        ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
+        return repo.FindAccounts(name!, ct);
+    });
+```
+
+- **`[Description]`** is written for the model, not for people. It's how the model knows when to call the tool, and what to do with the result.
+- **`ToolArguments.Require`** rejects a bad argument with a message that tells the model how to fix it.
+- **`audit.RunAsync`** records every call, including rejected ones.
+- **`repo.FindAccounts`** calls one stored procedure. That's all the database lets the server do.
 
 ## Step-by-step guides
 
-The detailed guides explain each step and why it works the way it does, and cover testing, troubleshooting and the optional setups.
+The detailed guides walk you through each step, explain why we built it that way, and cover testing, troubleshooting and the optional setups.
 
 1. [Set up the database, and see how it's locked down](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
-3. [Connect VS Code and Copilot, then ask questions](docs/03-vscode-copilot.md)
+3. [Connect VS Code and Copilot (or Claude Code), then ask questions](docs/03-vscode-copilot.md)
 4. Optional: [Deploy the database and MCP server to Azure](docs/04-azure-deployment.md)
 5. Optional: [Use a local model](docs/05-local-llm.md)
 
@@ -167,3 +188,7 @@ The MCP SDK and its authorization support are changing quickly. If something doe
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+---
+
+Made by Liam from [Code Express AI](https://codeexpress.ai). Check out my tutorials on [YouTube](https://www.youtube.com/@CodeExpressAI).
