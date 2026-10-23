@@ -24,6 +24,8 @@ public class When_Trading_Tools_Are_Called
         { "get_price_history", tools => tools.GetPriceHistory(""), "ticker must not be empty. Use search_instruments to find one." },
         { "get_price_history", tools => tools.GetPriceHistory("MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
         { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
+        { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(1899, 12, 31)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
+        { "get_top_movers", tools => tools.GetTopMovers(new DateOnly(9999, 12, 31)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 0), "count must be between 1 and 20." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 21), "count must be between 1 and 20." },
         { "find_accounts", tools => tools.FindAccounts("a"), "name must be at least 2 characters, for example 'Thompson'." },
@@ -32,6 +34,7 @@ public class When_Trading_Tools_Are_Called
         { "find_accounts", tools => tools.FindAccounts(new string('x', 101)), "name must be at most 100 characters." },
         { "list_trades", tools => tools.ListTrades(0), "accountId must be a positive number. Use find_accounts to look it up." },
         { "list_trades", tools => tools.ListTrades(1, new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
+        { "list_trades", tools => tools.ListTrades(1, to: new DateOnly(2101, 1, 1)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
         { "list_trades", tools => tools.ListTrades(1, page: 0), "page must be between 1 and 1000." },
         { "list_trades", tools => tools.ListTrades(1, page: 1001), "page must be between 1 and 1000." },
         { "list_trades", tools => tools.ListTrades(1, ticker: "MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
@@ -111,8 +114,9 @@ public class When_Trading_Tools_Are_Called
         await _tools.FindAccounts(new string('x', 100));
         await _tools.GetPriceHistory(new string('X', 10));
         await _tools.ListTrades(1, ticker: new string('X', 10));
+        await _tools.GetPriceHistory("MARP", new DateOnly(1900, 1, 1), new DateOnly(2100, 12, 31));
 
-        Assert.Equal(8, _repository.ReceivedCalls().Count());
+        Assert.Equal(9, _repository.ReceivedCalls().Count());
     }
 
     private sealed class RecordingAuditService : IAuditService

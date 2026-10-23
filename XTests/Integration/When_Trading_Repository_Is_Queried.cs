@@ -65,6 +65,14 @@ public class When_Trading_Repository_Is_Queried
     }
 
     [IntegrationFact]
+    public async Task it_should_report_a_date_before_the_data_as_an_argument_problem_for_the_model()
+    {
+        var exception = await Assert.ThrowsAsync<ToolArgumentException>(() => _repository.GetTopMovers(new DateOnly(1900, 1, 1), 5, default));
+
+        Assert.Equal("No prices on or before this date. Call get_dataset_info for the available range.", exception.Message);
+    }
+
+    [IntegrationFact]
     public async Task it_should_report_an_unknown_account_as_an_argument_problem_for_the_model()
     {
         var exception = await Assert.ThrowsAsync<ToolArgumentException>(() => _repository.GetPositions(int.MaxValue, default));

@@ -94,7 +94,8 @@ BEGIN
     IF @Count > 20 SET @Count = 20;
 
     SET @Date = (SELECT MAX(PriceDate) FROM trading.Prices WHERE PriceDate <= ISNULL(@Date, '9999-12-31'));
-    IF @Date IS NULL RETURN;
+    IF @Date IS NULL
+        THROW 50003, N'No prices on or before this date. Call get_dataset_info for the available range.', 1;
 
     WITH w AS (
         SELECT p.InstrumentId, p.PriceDate, p.ClosePrice,

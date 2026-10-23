@@ -121,7 +121,8 @@ public Task<IReadOnlyList<Account>> FindAccounts(
     audit.RunAsync("find_accounts", new { name }, () =>
     {
         ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
-        return repo.FindAccounts(name!, ct);
+        ToolArguments.Require(name!.Length <= 100, "name must be at most 100 characters.");
+        return repo.FindAccounts(name, ct);
     });
 ```
 

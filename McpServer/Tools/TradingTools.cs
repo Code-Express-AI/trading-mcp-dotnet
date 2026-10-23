@@ -58,6 +58,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         CancellationToken ct = default) =>
         audit.RunAsync("get_top_movers", new { date, count }, () =>
         {
+            ToolArguments.RequireDate(date);
             ToolArguments.Require(count is >= 1 and <= 20, "count must be between 1 and 20.");
             return repo.GetTopMovers(date, count, ct);
         });
