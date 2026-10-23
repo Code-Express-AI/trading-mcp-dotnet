@@ -65,7 +65,7 @@ dotnet run --project McpServer
 
 **5. Check it's running.** Open [http://localhost:5080/health](http://localhost:5080/health) in a browser. It should return `{"status":"ok"}`.
 
-Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-inspector.md), or jump straight in and ask Copilot questions in [guide 3](docs/03-vscode-copilot.md).
+Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-inspector.md), or jump straight in and ask Copilot or Claude Code questions in [guide 3](docs/03-copilot-or-claude-code.md).
 
 ## Videos
 
@@ -73,7 +73,7 @@ Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-insp
 |---|-------|-------|
 | 1 | Intro demo: Copilot answers questions from the database, but our security layers stop it deleting anything | – |
 | 2 | Set up SQL Server in Docker, and the database security behind it | [Guide 1](docs/01-docker-database.md) |
-| 3 | Test the server with MCP Inspector, then connect Copilot | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-vscode-copilot.md) |
+| 3 | Test the server with MCP Inspector, then connect Copilot | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-copilot-or-claude-code.md) |
 
 Video links will be added as episodes are published. The guides for [deploying to Azure](docs/04-azure-deployment.md) and [running with a local model](docs/05-local-llm.md) are already here; videos for them may follow, depending on viewer demand.
 
@@ -136,7 +136,7 @@ The detailed guides walk you through each step, explain why we built it that way
 
 1. [Set up the database, and see how it's locked down](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
-3. [Connect VS Code and Copilot (or Claude Code), then ask questions](docs/03-vscode-copilot.md)
+3. [Connect Copilot or Claude Code, then ask questions](docs/03-copilot-or-claude-code.md)
 4. Optional: [Deploy the database and MCP server to Azure](docs/04-azure-deployment.md)
 5. Optional: [Use a local model](docs/05-local-llm.md)
 

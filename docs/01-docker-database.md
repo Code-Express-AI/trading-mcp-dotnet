@@ -75,13 +75,20 @@ dotnet run --project DataGenerator -- --reset --end-date=2026-06-30
 
 The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing. Each layer grants only what's needed, following the principle of least privilege.
 
-**No access to the tables.** `02_security.sql` denies `mcp_reader` every permission on the tables: no `SELECT`, `INSERT`, `UPDATE` or `DELETE`. Whatever the server code tries, or a model tricked into asking for something else, the database refuses.
+**No access to the tables.** `02_security.sql` denies `mcp_reader` every permission on the tables: no `SELECT`, `INSERT`, `UPDATE` or `DELETE`. Whatever the server code tries, or a model tricked into asking for something it shouldn't, the database refuses.
 
 **Stored procedures are the only way in.** `03_procedures.sql` grants `mcp_reader` one thing: `EXECUTE` on the stored procedures. Each procedure returns fixed columns and a limited number of rows, and none of them builds SQL from text. So the procedures are a hard limit on what anyone can ask for.
 
 **Ownership chaining makes it work.** The procedures can read tables that `mcp_reader` can't, because the procedures and the tables have the same owner. SQL Server then skips the permission check on the tables. Dynamic SQL (`EXEC(@sql)`) would break that chain, which is one more reason the procedures don't use it.
 
-**Masking.** Account numbers and email addresses are masked in the table definitions. `mcp_reader` doesn't have the `UNMASK` permission, so it only ever sees values like `ACCXXXXX149`.
+**Masking.** Account numbers and email addresses are masked in the table definitions. `mcp_reader` doesn't have the `UNMASK` permission, so it only ever sees values like `ACCXXXXX149`. That holds even through the stored procedures, because ownership chaining skips the table permission checks but not masking: SQL Server checks whether the caller has `UNMASK`, not the procedure's owner.
+
+On an existing database you don't need to recreate the tables. You can add a mask to a column that's already there:
+
+```sql
+ALTER TABLE trading.Accounts
+    ALTER COLUMN AccountNumber ADD MASKED WITH (FUNCTION = 'partial(3,"XXXXX",3)');
+```
 
 **A tamper-proof audit log.** The MCP server records every tool call in `trading.AuditLog`. It's an append-only ledger table: rows can be added but never changed or deleted, not even by `sa`. SQL Server also keeps a hash chain through every row, so tampering with the data files is detected.
 

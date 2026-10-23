@@ -121,4 +121,4 @@ Once any token is set in user-secrets, `MCP_TOKEN` in `.env` is no longer accept
 - **Inspector can't connect, or reports that authentication is required:** check the URL ends in `/mcp`, and that the header value is `Bearer ` followed by the token, exactly as it is in `.env` or user-secrets.
 - **Port 5080 is in use:** run `dotnet run --project McpServer --urls http://localhost:5081`, and use that port in Inspector and VS Code.
 
-Next: [Connect VS Code and Copilot](03-vscode-copilot.md).
+Next: [Connect Copilot or Claude Code](03-copilot-or-claude-code.md).
