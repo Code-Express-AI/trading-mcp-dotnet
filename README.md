@@ -173,6 +173,7 @@ Before using this pattern with a real database, see [Before you go to production
 | ModelContextProtocol.AspNetCore | 2.3.0 | 22-Oct-2026 |
 | SQL Server container | 2022-latest | 22-Oct-2026 |
 | Host / model | VS Code 1.143.1 / Copilot free tier, Auto model selection (Copilot picked gpt-6-luna) | 23-Oct-2026 |
+| Host / model | Claude Code 2.1.309 / Claude Opus 5.5 | 23-Oct-2026 |
 
 The MCP SDK and its authorization support are changing quickly. If something doesn't work, check the [C# SDK's issues](https://github.com/modelcontextprotocol/csharp-sdk/issues) for known problems.
 
@@ -193,4 +194,4 @@ MIT. See [LICENSE](LICENSE).
 
 Made by Liam from [Code Express AI](https://codeexpress.ai). Check out my tutorials on [YouTube](https://www.youtube.com/@CodeExpressAI).
 
-Connecting AI to your own systems? [Book a free 30-minute call](https://codeexpress.ai) and we'll talk it through.
+Connecting AI to your own systems? [Book a free 30-minute call](https://codeexpress.ai/#contact) and we'll talk it through.
