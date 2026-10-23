@@ -1,5 +1,7 @@
 # 5. Optional: use a local model
 
+> **Note:** We haven't tested this guide end to end yet. If a step doesn't work, please [open an issue](https://github.com/Code-Express-AI/trading-mcp-dotnet/issues).
+
 You can run the same MCP server with a model on your own machine instead of a cloud model. Nothing changes on the server: VS Code still connects to it in the same way, and only the model behind the chat is different. This guide uses Ollama.
 
 A local model also means the trading data never leaves your machine, which matters when the data is real.

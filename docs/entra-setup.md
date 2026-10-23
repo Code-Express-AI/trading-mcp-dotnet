@@ -1,5 +1,7 @@
 # Entra ID authentication for the MCP server
 
+> **Note:** We haven't tested this guide end to end yet. If a step doesn't work, please [open an issue](https://github.com/Code-Express-AI/trading-mcp-dotnet/issues).
+
 The server acts as an OAuth 2.0 **resource server**: it never issues tokens, it only validates tokens issued by
 Microsoft Entra ID. You register the server as an API, then register whatever calls it as a client.
 

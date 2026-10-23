@@ -1,5 +1,7 @@
 # 4. Optional: deploy to Azure
 
+> **Note:** We haven't tested this guide end to end yet. If a step doesn't work, please [open an issue](https://github.com/Code-Express-AI/trading-mcp-dotnet/issues).
+
 This guide moves the database to Azure SQL Database, deploys the MCP server to Azure App Service, and replaces the local bearer tokens with Microsoft Entra ID. The [Entra setup guide](entra-setup.md) has the detailed app-registration and token steps.
 
 Everything here fits Azure's free tiers: the [Azure SQL Database free offer](https://learn.microsoft.com/azure/azure-sql/database/free-offer) and the App Service **Free (F1)** plan. The free database is serverless and pauses when idle, so the first connection after a pause can take longer than the default 15 seconds. If you see timeouts, add `Connect Timeout=60` to the connection string.
