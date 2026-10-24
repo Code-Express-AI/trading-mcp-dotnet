@@ -30,6 +30,7 @@ public class When_Rejected_Requests_Are_Logged
     }
 
     [Theory]
+    [InlineData(StatusCodes.Status400BadRequest)]
     [InlineData(StatusCodes.Status401Unauthorized)]
     [InlineData(StatusCodes.Status403Forbidden)]
     [InlineData(StatusCodes.Status429TooManyRequests)]
@@ -62,7 +63,7 @@ public class When_Rejected_Requests_Are_Logged
 
     [Theory]
     [InlineData(StatusCodes.Status200OK)]
-    [InlineData(StatusCodes.Status400BadRequest)]
+    [InlineData(StatusCodes.Status404NotFound)]
     [InlineData(StatusCodes.Status500InternalServerError)]
     public async Task it_should_not_log_requests_that_were_not_rejected(int statusCode)
     {
