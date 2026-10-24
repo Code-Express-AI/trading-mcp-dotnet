@@ -12,10 +12,10 @@ public class When_Trading_Repository_Is_Queried
 
     // Fixtures are looked up as sa, so the tests work with whatever data the generator produced.
     private static Task<string> AnyTickerAsync() =>
-        IntegrationDatabase.QueryScalarAsync<string>("SELECT TOP 1 Ticker FROM trading.Instruments ORDER BY Ticker");
+        IntegrationDatabase.QueryScalarAsync<string>("SELECT TOP 1 Ticker FROM trading.Instrument ORDER BY Ticker");
 
     private static Task<int> AnAccountWithPositionsAsync() =>
-        IntegrationDatabase.QueryScalarAsync<int>("SELECT TOP 1 AccountId FROM trading.v_Positions ORDER BY AccountId");
+        IntegrationDatabase.QueryScalarAsync<int>("SELECT TOP 1 AccountId FROM trading.v_Position ORDER BY AccountId");
 
     [IntegrationFact]
     public async Task it_should_map_the_results_of_every_stored_procedure()
@@ -23,7 +23,7 @@ public class When_Trading_Repository_Is_Queried
         var ticker = await AnyTickerAsync();
         var accountId = await AnAccountWithPositionsAsync();
         var clientName = await IntegrationDatabase.QueryScalarAsync<string>(
-            $"SELECT c.FullName FROM trading.Accounts a JOIN trading.Clients c ON c.ClientId = a.ClientId WHERE a.AccountId = {accountId}");
+            $"SELECT c.FullName FROM trading.Account a JOIN trading.Client c ON c.ClientId = a.ClientId WHERE a.AccountId = {accountId}");
 
         Assert.NotEmpty(await _repository.GetDatasetInfo(default));
         Assert.NotEmpty(await _repository.SearchInstruments(ticker[..3], default));
@@ -40,7 +40,7 @@ public class When_Trading_Repository_Is_Queried
     {
         var accountId = await AnAccountWithPositionsAsync();
         var clientName = await IntegrationDatabase.QueryScalarAsync<string>(
-            $"SELECT c.FullName FROM trading.Accounts a JOIN trading.Clients c ON c.ClientId = a.ClientId WHERE a.AccountId = {accountId}");
+            $"SELECT c.FullName FROM trading.Account a JOIN trading.Client c ON c.ClientId = a.ClientId WHERE a.AccountId = {accountId}");
 
         var accounts = await _repository.FindAccounts(clientName, default);
 

@@ -74,7 +74,7 @@ internal static class IntegrationDatabase
         {
             using var connection = new SqlConnection(AdminConnectionString());
             connection.Open();
-            using var command = new SqlCommand("SELECT COUNT(*) FROM trading.Instruments", connection);
+            using var command = new SqlCommand("SELECT COUNT(*) FROM trading.Instrument", connection);
             return (int)command.ExecuteScalar()! > 0
                 ? null
                 : "The database has no data. Load it with: dotnet run --project DataGenerator -- --reset";

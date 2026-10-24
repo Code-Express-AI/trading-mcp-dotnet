@@ -15,7 +15,7 @@ CREATE USER mcp_reader WITH PASSWORD = '<<replace-with-a-long-random-password>>'
 -- reads and writes fail at the database. The stored procedures in 03 are the only way in.
 DENY SELECT, INSERT, UPDATE, DELETE, ALTER ON SCHEMA::trading TO mcp_reader;
 
--- Clients.Email and Accounts.AccountNumber are masked in 01_schema.sql. mcp_reader has no UNMASK
+-- Client.Email and Account.AccountNumber are masked in 01_schema.sql. mcp_reader has no UNMASK
 -- permission, so it only ever sees masked values, e.g. ACCXXXXX678.
 GO
 

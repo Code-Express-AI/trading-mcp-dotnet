@@ -13,7 +13,7 @@ internal static class TradeGenerator
         Random random,
         IReadOnlyList<Account> accounts,
         IReadOnlyList<Instrument> instruments,
-        IReadOnlyList<PriceBar> prices,
+        IReadOnlyList<InstrumentPrice> prices,
         IReadOnlyList<DateTime> tradingDays,
         int averageTradesPerAccount)
     {
@@ -35,7 +35,7 @@ internal static class TradeGenerator
         Random random,
         Account account,
         List<Instrument> tradableInstruments,
-        Dictionary<(int InstrumentId, DateTime PriceDate), PriceBar> pricesByInstrumentAndDay,
+        Dictionary<(int InstrumentId, DateTime PriceDate), InstrumentPrice> pricesByInstrumentAndDay,
         IReadOnlyList<DateTime> tradingDays,
         int averageTradesPerAccount)
     {
@@ -117,10 +117,10 @@ internal static class TradeGenerator
     }
 
     // Filled within ±0.2% of the day's close, but never outside that day's low-high range.
-    private static decimal CreateTradePrice(Random random, PriceBar priceBar)
+    private static decimal CreateTradePrice(Random random, InstrumentPrice instrumentPrice)
     {
-        var price = Math.Round(priceBar.Close * (decimal)(1 + (random.NextDouble() - 0.5) * 0.004), 2);
-        return Math.Clamp(price, priceBar.Low, priceBar.High);
+        var price = Math.Round(instrumentPrice.Close * (decimal)(1 + (random.NextDouble() - 0.5) * 0.004), 2);
+        return Math.Clamp(price, instrumentPrice.Low, instrumentPrice.High);
     }
 
     // Fees are 5 basis points (0.05%) of the trade value, with a minimum of 1.00.

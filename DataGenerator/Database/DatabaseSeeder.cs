@@ -10,7 +10,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
     public async Task<bool> ContainsDataAsync()
     {
         await using var connection = await OpenConnectionAsync();
-        return await ExecuteScalarIntAsync(connection, null, "SELECT COUNT(*) FROM trading.Instruments") > 0;
+        return await ExecuteScalarIntAsync(connection, null, "SELECT COUNT(*) FROM trading.Instrument") > 0;
     }
 
     public async Task SeedAsync(GeneratedData data, bool clearExistingData)
@@ -24,7 +24,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         }
 
         await InsertDataAsync(connection, transaction, data);
-        var openPositionCount = await ExecuteScalarIntAsync(connection, transaction, "SELECT COUNT(*) FROM trading.v_Positions");
+        var openPositionCount = await ExecuteScalarIntAsync(connection, transaction, "SELECT COUNT(*) FROM trading.v_Position");
         await transaction.CommitAsync();
 
         Console.WriteLine($"Done. {openPositionCount:N0} open positions across {data.Accounts.Count:N0} accounts.");
@@ -50,14 +50,14 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         Console.WriteLine("Clearing existing data (AuditLog is left alone)...");
 
         // Children before parents, so no foreign key is ever left pointing at a deleted row.
-        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Trades");
-        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Prices");
-        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Accounts");
-        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Clients");
-        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Instruments");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Trade");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.InstrumentPrice");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Account");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Client");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Instrument");
 
-        // Trades are the only table where SQL Server assigns the IDs, so restart them at 1.
-        await ExecuteNonQueryAsync(connection, transaction, "DBCC CHECKIDENT ('trading.Trades', RESEED, 0)");
+        // Trade is the only table where SQL Server assigns the IDs, so restart them at 1.
+        await ExecuteNonQueryAsync(connection, transaction, "DBCC CHECKIDENT ('trading.Trade', RESEED, 0)");
     }
 
     private static async Task InsertDataAsync(SqlConnection connection, SqlTransaction transaction, GeneratedData data)
@@ -65,11 +65,11 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         Console.WriteLine("Inserting...");
 
         // Parents before children. The generated IDs are kept (keepIdentity) so the foreign keys line up.
-        await BulkInsertAsync(connection, transaction, "trading.Instruments", CreateInstrumentTable(data.Instruments), keepIdentity: true);
-        await BulkInsertAsync(connection, transaction, "trading.Prices", CreatePriceTable(data.Prices), keepIdentity: false);
-        await BulkInsertAsync(connection, transaction, "trading.Clients", CreateClientTable(data.Clients), keepIdentity: true);
-        await BulkInsertAsync(connection, transaction, "trading.Accounts", CreateAccountTable(data.Accounts), keepIdentity: true);
-        await BulkInsertAsync(connection, transaction, "trading.Trades", CreateTradeTable(data.Trades), keepIdentity: false);
+        await BulkInsertAsync(connection, transaction, "trading.Instrument", CreateInstrumentTable(data.Instruments), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.InstrumentPrice", CreateInstrumentPriceTable(data.Prices), keepIdentity: false);
+        await BulkInsertAsync(connection, transaction, "trading.Client", CreateClientTable(data.Clients), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.Account", CreateAccountTable(data.Accounts), keepIdentity: true);
+        await BulkInsertAsync(connection, transaction, "trading.Trade", CreateTradeTable(data.Trades), keepIdentity: false);
     }
 
     private static DataTable CreateInstrumentTable(IEnumerable<Instrument> instruments)
@@ -85,7 +85,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         return table;
     }
 
-    private static DataTable CreatePriceTable(IEnumerable<PriceBar> prices)
+    private static DataTable CreateInstrumentPriceTable(IEnumerable<InstrumentPrice> prices)
     {
         var table = CreateTable(
             ("InstrumentId", typeof(int)), ("PriceDate", typeof(DateTime)), ("OpenPrice", typeof(decimal)),
@@ -167,7 +167,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         }
 
         await bulkCopy.WriteToServerAsync(rows);
-        Console.WriteLine($"  {tableName,-22} {rows.Rows.Count,9:N0} rows");
+        Console.WriteLine($"  {tableName,-23} {rows.Rows.Count,9:N0} rows");
     }
 
     private static async Task<int> ExecuteScalarIntAsync(SqlConnection connection, SqlTransaction? transaction, string sql)

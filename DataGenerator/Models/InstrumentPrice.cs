@@ -1,6 +1,6 @@
 namespace TradingDataGenerator.Models;
 
-internal sealed record PriceBar(
+internal sealed record InstrumentPrice(
     int InstrumentId,
     DateTime PriceDate,
     decimal Open,

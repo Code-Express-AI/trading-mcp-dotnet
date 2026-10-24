@@ -15,13 +15,13 @@ public class When_The_Mcp_Reader_Bypasses_The_Procedures
     [IntegrationFact]
     public async Task it_should_refuse_to_read_a_table_directly()
     {
-        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.Trades")).Number);
+        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.Trade")).Number);
     }
 
     [IntegrationFact]
     public async Task it_should_refuse_to_change_data()
     {
-        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("DELETE FROM trading.Trades")).Number);
+        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("DELETE FROM trading.Trade")).Number);
     }
 
     [IntegrationFact]

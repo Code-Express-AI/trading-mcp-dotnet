@@ -11,9 +11,9 @@ GO
 CREATE SCHEMA trading;
 GO
 
-CREATE TABLE trading.Instruments (
-    InstrumentId  INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Instruments PRIMARY KEY,
-    Ticker        NVARCHAR(10)  NOT NULL CONSTRAINT UQ_Instruments_Ticker UNIQUE,
+CREATE TABLE trading.Instrument (
+    InstrumentId  INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Instrument PRIMARY KEY,
+    Ticker        NVARCHAR(10)  NOT NULL CONSTRAINT UQ_Instrument_Ticker UNIQUE,
     Name          NVARCHAR(100) NOT NULL,
     Sector        NVARCHAR(50)  NOT NULL,
     Currency      CHAR(3)       NOT NULL
@@ -21,59 +21,59 @@ CREATE TABLE trading.Instruments (
 
 /* Daily prices. The primary key doubles as the index for "latest price" lookups.
    The columns are OpenPrice and ClosePrice because OPEN and CLOSE are reserved words. */
-CREATE TABLE trading.Prices (
-    InstrumentId  INT           NOT NULL CONSTRAINT FK_Prices_Instruments REFERENCES trading.Instruments(InstrumentId),
+CREATE TABLE trading.InstrumentPrice (
+    InstrumentId  INT           NOT NULL CONSTRAINT FK_InstrumentPrice_Instrument REFERENCES trading.Instrument(InstrumentId),
     PriceDate     DATE          NOT NULL,
     OpenPrice     DECIMAL(18,4) NOT NULL,
     HighPrice     DECIMAL(18,4) NOT NULL,
     LowPrice      DECIMAL(18,4) NOT NULL,
     ClosePrice    DECIMAL(18,4) NOT NULL,
     Volume        BIGINT        NOT NULL,
-    CONSTRAINT PK_Prices PRIMARY KEY (InstrumentId, PriceDate),
-    CONSTRAINT CK_Prices_Range  CHECK (HighPrice >= LowPrice
+    CONSTRAINT PK_InstrumentPrice PRIMARY KEY (InstrumentId, PriceDate),
+    CONSTRAINT CK_InstrumentPrice_Range  CHECK (HighPrice >= LowPrice
                                    AND HighPrice >= OpenPrice AND HighPrice >= ClosePrice
                                    AND LowPrice  <= OpenPrice AND LowPrice  <= ClosePrice),
-    CONSTRAINT CK_Prices_Positive CHECK (LowPrice > 0 AND Volume >= 0)
+    CONSTRAINT CK_InstrumentPrice_Positive CHECK (LowPrice > 0 AND Volume >= 0)
 );
 
-CREATE TABLE trading.Clients (
-    ClientId     INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Clients PRIMARY KEY,
+CREATE TABLE trading.Client (
+    ClientId     INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Client PRIMARY KEY,
     FullName     NVARCHAR(100) NOT NULL,
     Email        NVARCHAR(200) MASKED WITH (FUNCTION = 'email()') NOT NULL,   -- masked for users without UNMASK
     Country      NVARCHAR(50)  NOT NULL,
     RiskProfile  NVARCHAR(20)  NOT NULL
-        CONSTRAINT CK_Clients_Risk CHECK (RiskProfile IN ('Conservative','Balanced','Growth','Aggressive')),
+        CONSTRAINT CK_Client_Risk CHECK (RiskProfile IN ('Conservative','Balanced','Growth','Aggressive')),
     CreatedOn    DATE          NOT NULL
 );
 
-CREATE TABLE trading.Accounts (
-    AccountId      INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Accounts PRIMARY KEY,
-    ClientId       INT           NOT NULL CONSTRAINT FK_Accounts_Clients REFERENCES trading.Clients(ClientId),
+CREATE TABLE trading.Account (
+    AccountId      INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Account PRIMARY KEY,
+    ClientId       INT           NOT NULL CONSTRAINT FK_Account_Client REFERENCES trading.Client(ClientId),
     AccountNumber  NVARCHAR(20)  MASKED WITH (FUNCTION = 'partial(3,"XXXXX",3)') NOT NULL
-        CONSTRAINT UQ_Accounts_Number UNIQUE,
+        CONSTRAINT UQ_Account_Number UNIQUE,
     AccountType    NVARCHAR(20)  NOT NULL
-        CONSTRAINT CK_Accounts_Type CHECK (AccountType IN ('Brokerage','Retirement','Joint')),
+        CONSTRAINT CK_Account_Type CHECK (AccountType IN ('Brokerage','Retirement','Joint')),
     BaseCurrency   CHAR(3)       NOT NULL,
     OpenedOn       DATE          NOT NULL
 );
-CREATE INDEX IX_Accounts_ClientId ON trading.Accounts(ClientId);
+CREATE INDEX IX_Account_ClientId ON trading.Account(ClientId);
 
-CREATE TABLE trading.Trades (
-    TradeId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Trades PRIMARY KEY,
-    AccountId       INT           NOT NULL CONSTRAINT FK_Trades_Accounts    REFERENCES trading.Accounts(AccountId),
-    InstrumentId    INT           NOT NULL CONSTRAINT FK_Trades_Instruments REFERENCES trading.Instruments(InstrumentId),
-    Side            CHAR(4)       NOT NULL CONSTRAINT CK_Trades_Side   CHECK (Side IN ('BUY','SELL')),
-    Quantity        DECIMAL(18,4) NOT NULL CONSTRAINT CK_Trades_Qty    CHECK (Quantity > 0),
-    Price           DECIMAL(18,4) NOT NULL CONSTRAINT CK_Trades_Price  CHECK (Price > 0),
-    Fees            DECIMAL(18,2) NOT NULL CONSTRAINT DF_Trades_Fees DEFAULT (0),
+CREATE TABLE trading.Trade (
+    TradeId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Trade PRIMARY KEY,
+    AccountId       INT           NOT NULL CONSTRAINT FK_Trade_Account    REFERENCES trading.Account(AccountId),
+    InstrumentId    INT           NOT NULL CONSTRAINT FK_Trade_Instrument REFERENCES trading.Instrument(InstrumentId),
+    Side            CHAR(4)       NOT NULL CONSTRAINT CK_Trade_Side   CHECK (Side IN ('BUY','SELL')),
+    Quantity        DECIMAL(18,4) NOT NULL CONSTRAINT CK_Trade_Qty    CHECK (Quantity > 0),
+    Price           DECIMAL(18,4) NOT NULL CONSTRAINT CK_Trade_Price  CHECK (Price > 0),
+    Fees            DECIMAL(18,2) NOT NULL CONSTRAINT DF_Trade_Fees DEFAULT (0),
     TradeTimestamp  DATETIME2(0)  NOT NULL,
-    Status          NVARCHAR(10)  NOT NULL CONSTRAINT DF_Trades_Status DEFAULT ('SETTLED')
-        CONSTRAINT CK_Trades_Status CHECK (Status IN ('PENDING','SETTLED','CANCELLED'))
+    Status          NVARCHAR(10)  NOT NULL CONSTRAINT DF_Trade_Status DEFAULT ('SETTLED')
+        CONSTRAINT CK_Trade_Status CHECK (Status IN ('PENDING','SETTLED','CANCELLED'))
 );
 -- Typical access paths: "trades for an account in a date range", "trades in an instrument"
-CREATE INDEX IX_Trades_Account_Time ON trading.Trades(AccountId, TradeTimestamp DESC)
+CREATE INDEX IX_Trade_Account_Time ON trading.Trade(AccountId, TradeTimestamp DESC)
     INCLUDE (InstrumentId, Side, Quantity, Price, Fees, Status);
-CREATE INDEX IX_Trades_Instrument_Time ON trading.Trades(InstrumentId, TradeTimestamp DESC);
+CREATE INDEX IX_Trade_Instrument_Time ON trading.Trade(InstrumentId, TradeTimestamp DESC);
 
 /* Written by the MCP server, one row per tool call.
    An append-only ledger table: rows can be added but never updated or deleted, not even by sa.
@@ -95,13 +95,13 @@ GO
 
 /* Positions are derived from trades, so nothing is stored twice.
    AvgBuyPrice is simply the average of all buy prices; real systems track tax lots or FIFO. */
-CREATE VIEW trading.v_Positions AS
+CREATE VIEW trading.v_Position AS
 SELECT  t.AccountId,
         t.InstrumentId,
         SUM(CASE WHEN t.Side = 'BUY' THEN t.Quantity ELSE -t.Quantity END) AS NetQuantity,
         SUM(CASE WHEN t.Side = 'BUY' THEN t.Quantity * t.Price ELSE 0 END)
           / NULLIF(SUM(CASE WHEN t.Side = 'BUY' THEN t.Quantity ELSE 0 END), 0) AS AvgBuyPrice
-FROM    trading.Trades t
+FROM    trading.Trade t
 WHERE   t.Status <> 'CANCELLED'
 GROUP BY t.AccountId, t.InstrumentId
 HAVING  SUM(CASE WHEN t.Side = 'BUY' THEN t.Quantity ELSE -t.Quantity END) <> 0;
@@ -123,13 +123,13 @@ SELECT  a.AccountId,
         lp.ClosePrice     AS LastPrice,
         p.NetQuantity * lp.ClosePrice                    AS MarketValue,
         p.NetQuantity * (lp.ClosePrice - p.AvgBuyPrice)  AS UnrealisedPnL
-FROM    trading.v_Positions p
-JOIN    trading.Accounts    a ON a.AccountId    = p.AccountId
-JOIN    trading.Clients     c ON c.ClientId     = a.ClientId
-JOIN    trading.Instruments i ON i.InstrumentId = p.InstrumentId
+FROM    trading.v_Position p
+JOIN    trading.Account    a ON a.AccountId    = p.AccountId
+JOIN    trading.Client     c ON c.ClientId     = a.ClientId
+JOIN    trading.Instrument i ON i.InstrumentId = p.InstrumentId
 OUTER APPLY (
         SELECT TOP (1) pr.PriceDate, pr.ClosePrice
-        FROM   trading.Prices pr
+        FROM   trading.InstrumentPrice pr
         WHERE  pr.InstrumentId = p.InstrumentId
         ORDER BY pr.PriceDate DESC
 ) lp;

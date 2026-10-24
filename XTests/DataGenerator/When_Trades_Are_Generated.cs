@@ -50,8 +50,8 @@ public class When_Trades_Are_Generated
 
         Assert.All(trades, trade =>
         {
-            var priceBar = pricesByDay[trade.Timestamp.Date];
-            Assert.InRange(trade.Price, priceBar.Low, priceBar.High);
+            var instrumentPrice = pricesByDay[trade.Timestamp.Date];
+            Assert.InRange(trade.Price, instrumentPrice.Low, instrumentPrice.High);
         });
     }
 

@@ -57,11 +57,11 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
         await seeder.SeedAsync(data, clearExistingData: false);
 
         Assert.True(await seeder.ContainsDataAsync());
-        Assert.Equal(data.Instruments.Count, await CountAsync("trading.Instruments"));
-        Assert.Equal(data.Prices.Count, await CountAsync("trading.Prices"));
-        Assert.Equal(data.Clients.Count, await CountAsync("trading.Clients"));
-        Assert.Equal(data.Accounts.Count, await CountAsync("trading.Accounts"));
-        Assert.Equal(data.Trades.Count, await CountAsync("trading.Trades"));
+        Assert.Equal(data.Instruments.Count, await CountAsync("trading.Instrument"));
+        Assert.Equal(data.Prices.Count, await CountAsync("trading.InstrumentPrice"));
+        Assert.Equal(data.Clients.Count, await CountAsync("trading.Client"));
+        Assert.Equal(data.Accounts.Count, await CountAsync("trading.Account"));
+        Assert.Equal(data.Trades.Count, await CountAsync("trading.Trade"));
     }
 
     [IntegrationFact]
@@ -70,10 +70,10 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
         await new DatabaseSeeder(ConnectionString).SeedAsync(SyntheticData.Generate(Options(seed: 42)), clearExistingData: false);
 
         Assert.Equal(0, await IntegrationDatabase.QueryScalarAsync<int>(
-            "SELECT COUNT(*) FROM trading.v_Positions WHERE NetQuantity < 0", _database));
+            "SELECT COUNT(*) FROM trading.v_Position WHERE NetQuantity < 0", _database));
         Assert.Equal(0, await IntegrationDatabase.QueryScalarAsync<int>("""
-            SELECT COUNT(*) FROM trading.Trades t
-            JOIN trading.Prices p ON p.InstrumentId = t.InstrumentId AND p.PriceDate = CAST(t.TradeTimestamp AS date)
+            SELECT COUNT(*) FROM trading.Trade t
+            JOIN trading.InstrumentPrice p ON p.InstrumentId = t.InstrumentId AND p.PriceDate = CAST(t.TradeTimestamp AS date)
             WHERE t.Price < p.LowPrice OR t.Price > p.HighPrice
             """, _database));
     }
@@ -87,7 +87,7 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
 
         await seeder.SeedAsync(replacement, clearExistingData: true);
 
-        Assert.Equal(replacement.Trades.Count, await CountAsync("trading.Trades"));
-        Assert.Equal(1L, await IntegrationDatabase.QueryScalarAsync<long>("SELECT MIN(TradeId) FROM trading.Trades", _database));
+        Assert.Equal(replacement.Trades.Count, await CountAsync("trading.Trade"));
+        Assert.Equal(1L, await IntegrationDatabase.QueryScalarAsync<long>("SELECT MIN(TradeId) FROM trading.Trade", _database));
     }
 }

@@ -86,7 +86,7 @@ The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing.
 On an existing database you don't need to recreate the tables. You can add a mask to a column that's already there:
 
 ```sql
-ALTER TABLE trading.Accounts
+ALTER TABLE trading.Account
     ALTER COLUMN AccountNumber ADD MASKED WITH (FUNCTION = 'partial(3,"XXXXX",3)');
 ```
 
@@ -109,7 +109,7 @@ Connect to the database twice, first as `sa` and then as `mcp_reader`, and run t
 **As `sa`**, you can see everything:
 
 ```sql
-SELECT TOP 5 FullName, Email FROM trading.Clients;   -- real email addresses
+SELECT TOP 5 FullName, Email FROM trading.Client;     -- real email addresses
 EXEC mcp.FindAccounts @Name = N'Thompson';            -- full account numbers
 DELETE FROM trading.AuditLog;                         -- refused: append-only ledger table
 ```
@@ -117,11 +117,11 @@ DELETE FROM trading.AuditLog;                         -- refused: append-only le
 **As `mcp_reader`**, you can only run the stored procedures, and they set the limits:
 
 ```sql
-SELECT TOP 5 FullName, Email FROM trading.Clients;   -- refused: no permission on the table
+SELECT TOP 5 FullName, Email FROM trading.Client;     -- refused: no permission on the table
 EXEC mcp.FindAccounts @Name = N'Thompson';            -- works, but account numbers are masked
 EXEC mcp.GetTopMovers @Count = 100;                   -- returns at most 20 rows
 EXEC mcp.GetPriceHistory @Ticker = N'NOPE';           -- refused: "Unknown ticker..."
-DELETE FROM trading.Trades;                           -- refused: no permission on the table
+DELETE FROM trading.Trade;                            -- refused: no permission on the table
 ```
 
 These rules are also checked automatically by the integration tests in `XTests/Integration`.
@@ -148,6 +148,15 @@ The DataGenerator explains most problems itself, for example a wrong password or
 ```sh
 docker compose down       # stop SQL Server and keep the data
 docker compose down -v    # stop SQL Server and delete the data
+```
+
+Deleting the container alone keeps the data, because it lives in the Docker volume. To start again from scratch, delete the volume too, then repeat steps 2 to 4:
+
+```sh
+docker compose down -v
+docker compose up -d --wait
+docker compose run --rm db-init
+dotnet run --project DataGenerator
 ```
 
 ## Use an existing SQL Server instead

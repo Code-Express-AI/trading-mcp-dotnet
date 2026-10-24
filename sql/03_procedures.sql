@@ -25,11 +25,11 @@ CREATE OR ALTER PROCEDURE mcp.GetDatasetInfo
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT  (SELECT MIN(PriceDate) FROM trading.Prices)  AS FirstPriceDate,
-            (SELECT MAX(PriceDate) FROM trading.Prices)  AS LastPriceDate,
-            (SELECT COUNT(*) FROM trading.Instruments)   AS Instruments,
-            (SELECT COUNT(*) FROM trading.Accounts)      AS Accounts,
-            (SELECT COUNT(*) FROM trading.Trades)        AS Trades;
+    SELECT  (SELECT MIN(PriceDate) FROM trading.InstrumentPrice) AS FirstPriceDate,
+            (SELECT MAX(PriceDate) FROM trading.InstrumentPrice) AS LastPriceDate,
+            (SELECT COUNT(*) FROM trading.Instrument)            AS Instruments,
+            (SELECT COUNT(*) FROM trading.Account)               AS Accounts,
+            (SELECT COUNT(*) FROM trading.Trade)                 AS Trades;
 END
 GO
 
@@ -45,7 +45,7 @@ BEGIN
     DECLARE @Pattern NVARCHAR(300) = REPLACE(REPLACE(REPLACE(@Text, '[', '[[]'), '%', '[%]'), '_', '[_]');
 
     SELECT TOP (25) Ticker, Name, Sector, Currency
-    FROM   trading.Instruments
+    FROM   trading.Instrument
     WHERE  Ticker LIKE @Pattern + '%' OR Name LIKE '%' + @Pattern + '%'
     ORDER BY Ticker;
 END
@@ -61,13 +61,13 @@ BEGIN
     SET NOCOUNT ON;
     SET @From = ISNULL(@From, '1900-01-01');
     SET @To   = ISNULL(@To,   '9999-12-31');
-    IF NOT EXISTS (SELECT 1 FROM trading.Instruments WHERE Ticker = @Ticker)
+    IF NOT EXISTS (SELECT 1 FROM trading.Instrument WHERE Ticker = @Ticker)
         THROW 50001, N'Unknown ticker. Use search_instruments to find the right one.', 1;
 
     WITH recent AS (
         SELECT TOP (250) p.PriceDate, p.OpenPrice, p.HighPrice, p.LowPrice, p.ClosePrice, p.Volume
-        FROM   trading.Prices p
-        JOIN   trading.Instruments i ON i.InstrumentId = p.InstrumentId
+        FROM   trading.InstrumentPrice p
+        JOIN   trading.Instrument i ON i.InstrumentId = p.InstrumentId
         WHERE  i.Ticker = @Ticker
           AND  p.PriceDate BETWEEN @From AND @To
         ORDER BY p.PriceDate DESC
@@ -93,21 +93,21 @@ BEGIN
     IF @Count < 1  SET @Count = 1;
     IF @Count > 20 SET @Count = 20;
 
-    SET @Date = (SELECT MAX(PriceDate) FROM trading.Prices WHERE PriceDate <= ISNULL(@Date, '9999-12-31'));
+    SET @Date = (SELECT MAX(PriceDate) FROM trading.InstrumentPrice WHERE PriceDate <= ISNULL(@Date, '9999-12-31'));
     IF @Date IS NULL
         THROW 50003, N'No prices on or before this date. Call get_dataset_info for the available range.', 1;
 
     WITH w AS (
         SELECT p.InstrumentId, p.PriceDate, p.ClosePrice,
                LAG(p.ClosePrice) OVER (PARTITION BY p.InstrumentId ORDER BY p.PriceDate) AS PrevClose
-        FROM   trading.Prices p
+        FROM   trading.InstrumentPrice p
         WHERE  p.PriceDate BETWEEN DATEADD(DAY, -7, @Date) AND @Date
     )
     SELECT TOP (@Count)
            i.Ticker, i.Name, w.PriceDate, w.ClosePrice, w.PrevClose,
            ROUND((w.ClosePrice / w.PrevClose - 1) * 100, 2) AS ChangePct
     FROM   w
-    JOIN   trading.Instruments i ON i.InstrumentId = w.InstrumentId
+    JOIN   trading.Instrument i ON i.InstrumentId = w.InstrumentId
     WHERE  w.PriceDate = @Date AND w.PrevClose IS NOT NULL
     ORDER BY ABS(w.ClosePrice / w.PrevClose - 1) DESC;
 END
@@ -128,8 +128,8 @@ BEGIN
     SELECT TOP (25)
            a.AccountId, a.AccountNumber, c.FullName AS ClientName, c.Country, c.RiskProfile,
            a.AccountType, a.BaseCurrency, a.OpenedOn
-    FROM   trading.Accounts a
-    JOIN   trading.Clients  c ON c.ClientId = a.ClientId
+    FROM   trading.Account a
+    JOIN   trading.Client  c ON c.ClientId = a.ClientId
     WHERE  c.FullName LIKE '%' + @Pattern + '%'
     ORDER BY c.FullName, a.AccountId;
 END
@@ -147,15 +147,15 @@ BEGIN
     DECLARE @PageSize INT = 50;
     IF @Page < 1    SET @Page = 1;
     IF @Page > 1000 SET @Page = 1000;
-    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
         THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
-    IF @Ticker IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trading.Instruments WHERE Ticker = @Ticker)
+    IF @Ticker IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trading.Instrument WHERE Ticker = @Ticker)
         THROW 50001, N'Unknown ticker. Use search_instruments to find the right one.', 1;
 
     SELECT t.TradeId, t.TradeTimestamp, i.Ticker, RTRIM(t.Side) AS Side,
            t.Quantity, t.Price, t.Fees, t.Status
-    FROM   trading.Trades t
-    JOIN   trading.Instruments i ON i.InstrumentId = t.InstrumentId
+    FROM   trading.Trade t
+    JOIN   trading.Instrument i ON i.InstrumentId = t.InstrumentId
     WHERE  t.AccountId = @AccountId
       AND (@From   IS NULL OR t.TradeTimestamp >= @From)
       AND (@To     IS NULL OR t.TradeTimestamp <  DATEADD(DAY, 1, @To))
@@ -170,7 +170,7 @@ CREATE OR ALTER PROCEDURE mcp.GetPositions
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
         THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
     SELECT TOP (200)
            Ticker, InstrumentName, Sector, Currency,
@@ -188,7 +188,7 @@ CREATE OR ALTER PROCEDURE mcp.GetPortfolioSummary
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM trading.Accounts WHERE AccountId = @AccountId)
+    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
         THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
     SELECT CASE WHEN GROUPING(Sector) = 1 THEN 'TOTAL' ELSE Sector END AS Sector,
            MAX(Currency)        AS Currency,

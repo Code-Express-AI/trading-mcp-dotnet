@@ -10,9 +10,9 @@ internal static class PriceGenerator
 {
     private const double OneTradingDayInYears = 1.0 / 252.0;
 
-    public static List<PriceBar> Generate(Random random, IReadOnlyList<Instrument> instruments, IReadOnlyList<DateTime> tradingDays)
+    public static List<InstrumentPrice> Generate(Random random, IReadOnlyList<Instrument> instruments, IReadOnlyList<DateTime> tradingDays)
     {
-        var prices = new List<PriceBar>(instruments.Count * tradingDays.Count);
+        var prices = new List<InstrumentPrice>(instruments.Count * tradingDays.Count);
         foreach (var instrument in instruments)
         {
             var previousClose = instrument.StartPrice;
@@ -21,7 +21,7 @@ internal static class PriceGenerator
             foreach (var tradingDay in tradingDays)
             {
                 var close = NextClose(random, instrument, previousClose);
-                prices.Add(CreatePriceBar(random, instrument.Id, tradingDay, previousClose, close, typicalVolume));
+                prices.Add(CreateInstrumentPrice(random, instrument.Id, tradingDay, previousClose, close, typicalVolume));
                 previousClose = close;
             }
         }
@@ -40,7 +40,7 @@ internal static class PriceGenerator
         return Math.Max(previousClose * Math.Exp(drift + shock), 1.0);
     }
 
-    private static PriceBar CreatePriceBar(
+    private static InstrumentPrice CreateInstrumentPrice(
         Random random, int instrumentId, DateTime tradingDay, double previousClose, double close, int typicalVolume)
     {
         // The open is within ±0.5% of yesterday's close. The high and low reach up to 1% beyond
@@ -53,7 +53,7 @@ internal static class PriceGenerator
         // occasionally two or three times higher.
         var volume = (long)(typicalVolume * Math.Exp(0.4 * random.NextStandardNormal()));
 
-        return new PriceBar(
+        return new InstrumentPrice(
             InstrumentId: instrumentId,
             PriceDate: tradingDay,
             Open: RoundMoney(open),
