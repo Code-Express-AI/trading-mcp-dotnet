@@ -58,7 +58,7 @@ public class When_Data_Is_Loaded_Into_Sql_Server : IAsyncLifetime
 
         Assert.True(await seeder.ContainsDataAsync());
         Assert.Equal(data.Instruments.Count, await CountAsync("trading.Instrument"));
-        Assert.Equal(data.Prices.Count, await CountAsync("trading.InstrumentPrice"));
+        Assert.Equal(data.InstrumentPrices.Count, await CountAsync("trading.InstrumentPrice"));
         Assert.Equal(data.Clients.Count, await CountAsync("trading.Client"));
         Assert.Equal(data.Accounts.Count, await CountAsync("trading.Account"));
         Assert.Equal(data.Trades.Count, await CountAsync("trading.Trade"));

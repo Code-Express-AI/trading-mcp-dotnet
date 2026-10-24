@@ -66,7 +66,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
 
         // Parents before children. The generated IDs are kept (keepIdentity) so the foreign keys line up.
         await BulkInsertAsync(connection, transaction, "trading.Instrument", CreateInstrumentTable(data.Instruments), keepIdentity: true);
-        await BulkInsertAsync(connection, transaction, "trading.InstrumentPrice", CreateInstrumentPriceTable(data.Prices), keepIdentity: false);
+        await BulkInsertAsync(connection, transaction, "trading.InstrumentPrice", CreateInstrumentPriceTable(data.InstrumentPrices), keepIdentity: false);
         await BulkInsertAsync(connection, transaction, "trading.Client", CreateClientTable(data.Clients), keepIdentity: true);
         await BulkInsertAsync(connection, transaction, "trading.Account", CreateAccountTable(data.Accounts), keepIdentity: true);
         await BulkInsertAsync(connection, transaction, "trading.Trade", CreateTradeTable(data.Trades), keepIdentity: false);

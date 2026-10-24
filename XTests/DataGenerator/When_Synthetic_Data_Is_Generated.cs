@@ -18,7 +18,7 @@ public class When_Synthetic_Data_Is_Generated
 
         Assert.Equal(5, data.Instruments.Count);
         Assert.Equal(10, data.Clients.Count);
-        Assert.NotEmpty(data.Prices);
+        Assert.NotEmpty(data.InstrumentPrices);
         Assert.NotEmpty(data.Accounts);
         Assert.NotEmpty(data.Trades);
         Assert.All(data.Accounts, account => Assert.Contains(data.Clients, client => client.Id == account.ClientId));
@@ -34,7 +34,7 @@ public class When_Synthetic_Data_Is_Generated
     {
         var data = SyntheticData.Generate(Options);
 
-        Assert.Equal(new DateTime(2025, 12, 31), data.Prices.Max(price => price.PriceDate));
+        Assert.Equal(new DateTime(2025, 12, 31), data.InstrumentPrices.Max(price => price.PriceDate));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class When_Synthetic_Data_Is_Generated
         var second = SyntheticData.Generate(Options);
 
         Assert.Equal(first.Instruments, second.Instruments);
-        Assert.Equal(first.Prices, second.Prices);
+        Assert.Equal(first.InstrumentPrices, second.InstrumentPrices);
         Assert.Equal(first.Clients, second.Clients);
         Assert.Equal(first.Accounts, second.Accounts);
         Assert.Equal(first.Trades, second.Trades);
