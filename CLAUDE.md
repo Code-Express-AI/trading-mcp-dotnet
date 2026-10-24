@@ -33,7 +33,7 @@ Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradin
 
 To add a tool:
 
-1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`. Return fixed columns, enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
+1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`, and a `GRANT EXECUTE ON mcp.<Name> TO mcp_reader;` line to the list at the end of the file. Return fixed columns, enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
 2. Add the method to `ITradingRepository` and `TradingRepository`, as a single `QueryAsync` call.
 3. Add the tool to `McpServer/Tools/TradingTools.cs` with `[McpServerTool(Name = "snake_case", ReadOnly = true)]` and a clear `[Description]`. The model reads the descriptions to decide which tool to call, so they matter. Check the arguments at the top of the audit lambda with `ToolArguments.Require(...)`, with messages that tell the model what to do instead. Never let a bad argument quietly return an empty result.
 4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`.
@@ -50,7 +50,7 @@ To add a tool:
 
 ## Security rules (do not weaken)
 
-- The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on the `mcp` schema (`03_procedures.sql`), nothing else.
+- The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on each `mcp` procedure, granted one by one at the end of `03_procedures.sql`, nothing else. Never grant on the whole schema: a procedure added to `mcp` by mistake would become callable.
 - Never add dynamic SQL, raw-query tools, or write operations on business tables.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
 - The server reads `.env` only in Development, and only for settings not configured elsewhere. Never let it read `.env` in Production.

@@ -77,7 +77,7 @@ The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing.
 
 **No access to the tables.** `02_security.sql` denies `mcp_reader` every permission on the tables: no `SELECT`, `INSERT`, `UPDATE` or `DELETE`. Whatever the server code tries, or a model tricked into asking for something it shouldn't, the database refuses.
 
-**Stored procedures are the only way in.** `03_procedures.sql` grants `mcp_reader` one thing: `EXECUTE` on the stored procedures. Each procedure returns fixed columns and a limited number of rows, and none of them builds SQL from text. So the procedures are a hard limit on what anyone can ask for.
+**Stored procedures are the only way in.** `03_procedures.sql` grants `mcp_reader` one thing: `EXECUTE` on each stored procedure, one by one. We don't grant on the whole `mcp` schema, because then a procedure added there by mistake would be callable straight away. Each procedure returns fixed columns and a limited number of rows, and none of them builds SQL from text. So the procedures are a hard limit on what anyone can ask for.
 
 **Ownership chaining makes it work.** The procedures can read tables that `mcp_reader` can't, because the procedures and the tables have the same owner. SQL Server then skips the permission check on the tables. Dynamic SQL (`EXEC(@sql)`) would break that chain, which is one more reason the procedures don't use it.
 

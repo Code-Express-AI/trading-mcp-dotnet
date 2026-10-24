@@ -8,7 +8,7 @@ namespace TradingMcp.Repository;
 
 /// <summary>
 /// The server's entire view of the database. Every method is a single stored-procedure call
-/// (schema "mcp"), and the SQL login behind it has EXECUTE on that schema and nothing else.
+/// (schema "mcp"), and the SQL login behind it has EXECUTE on those procedures and nothing else.
 /// </summary>
 public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRepository
 {

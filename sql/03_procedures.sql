@@ -220,8 +220,17 @@ BEGIN
 END
 GO
 
--- The one thing mcp_reader may do: run these procedures.
-GRANT EXECUTE ON SCHEMA::mcp TO mcp_reader;
+-- mcp_reader may run these procedures and nothing else. A procedure that isn't listed here can't be
+-- run by the MCP server, so add a line only for a procedure the server calls.
+GRANT EXECUTE ON mcp.GetDatasetInfo      TO mcp_reader;
+GRANT EXECUTE ON mcp.SearchInstruments   TO mcp_reader;
+GRANT EXECUTE ON mcp.GetPriceHistory     TO mcp_reader;
+GRANT EXECUTE ON mcp.GetTopMovers        TO mcp_reader;
+GRANT EXECUTE ON mcp.FindAccounts        TO mcp_reader;
+GRANT EXECUTE ON mcp.ListTrades          TO mcp_reader;
+GRANT EXECUTE ON mcp.GetPositions        TO mcp_reader;
+GRANT EXECUTE ON mcp.GetPortfolioSummary TO mcp_reader;
+GRANT EXECUTE ON mcp.WriteAudit          TO mcp_reader;
 GO
 
 SET NOEXEC OFF;   -- re-enable execution if the safety check above skipped the script
