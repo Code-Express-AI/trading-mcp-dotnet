@@ -49,6 +49,7 @@ internal static class McpServerApplication
         application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
         // First, so it sees the final status code of every request that authentication or the rate limiter rejects.
+        // Host filtering rejects a wrong Host header before this runs; the framework logs those (see appsettings.json).
         application.UseMiddleware<RejectedRequestLogger>();
 
         if (useEntra)
