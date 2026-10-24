@@ -35,6 +35,8 @@ Deploy the `publish` folder with your preferred method, such as the VS Code Azur
 | `ConnectionStrings__Trading` | The Azure SQL connection string for `mcp_reader` |
 | `AllowedHosts` | `<app-name>.azurewebsites.net` (requests for any other host name are rejected) |
 
+If you add a custom domain, add it to `AllowedHosts` too, separating host names with `;`. A request for a host name that isn't listed gets a 400 response, and the log shows `The host '<name>' does not match an allowed host.`
+
 App Service runs the server in Production, so it never reads `.env`, and `appsettings.Production.json` turns on `Audit:FailClosed`: if a tool call can't be written to the audit log, its results aren't returned.
 
 Treat the connection string as a secret. For anything beyond a short-lived demo, keep it in Azure Key Vault and use a Key Vault reference in the App Service settings. Let App Service reach Azure SQL through private networking rather than broad firewall rules.
