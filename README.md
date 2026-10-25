@@ -114,7 +114,7 @@ Each tool is a few lines. Here's `find_accounts`, from [TradingTools.cs](McpServ
 ```csharp
 [McpServerTool(Name = "find_accounts", ReadOnly = true)]
 [Description("Finds client accounts by (part of) the client's name. Returns at most 25. " +
-             "Account numbers are masked for privacy, so use the returned accountId in the other tools.")]
+             "Account numbers are masked for privacy, so use the returned accountKey in the other tools.")]
 public Task<IReadOnlyList<Account>> FindAccounts(
     [Description("At least 2 characters of the client's name, e.g. 'Thompson'.")] string name,
     CancellationToken ct = default) =>

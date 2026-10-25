@@ -90,6 +90,8 @@ ALTER TABLE trading.Account
     ALTER COLUMN AccountNumber ADD MASKED WITH (FUNCTION = 'partial(3,"XXXXX",3)');
 ```
 
+**No internal IDs leave the database.** Every table has a fast integer primary key for joins, and a random GUID key next to it (`AccountKey`, `ClientKey` and so on). The procedures only return the GUID, and only when another tool needs it: `find_accounts` returns an `AccountKey` because `get_positions` takes one. Sequential numbers would tell anyone with a stolen token how many accounts we have, and let them walk through every one from 1 upwards. A random key gives nothing away. The integration tests fail if a procedure ever returns a column ending in `Id`.
+
 **A tamper-proof audit log.** The MCP server records every tool call in `trading.AuditLog`. It's an append-only ledger table: rows can be added but never changed or deleted, not even by `sa`. SQL Server also keeps a hash chain through every row, so tampering with the data files is detected.
 
 **Contained users.** `mcp_reader` exists only inside the database, with its own password. That's how Azure SQL Database works, so the same scripts run locally and in Azure.

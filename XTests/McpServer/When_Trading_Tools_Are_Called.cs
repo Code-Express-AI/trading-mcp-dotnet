@@ -11,6 +11,8 @@ public class When_Trading_Tools_Are_Called
     private readonly ITradingRepository _repository = Substitute.For<ITradingRepository>();
     private readonly RecordingAuditService _audit = new();
     private readonly TradingTools _tools;
+    private const string AccountKey = "3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17";
+    private static readonly Guid Key = Guid.Parse(AccountKey);
 
     public When_Trading_Tools_Are_Called()
     {
@@ -23,23 +25,27 @@ public class When_Trading_Tools_Are_Called
         { "search_instruments", tools => tools.SearchInstruments(new string('x', 101)), "text must be at most 100 characters." },
         { "get_price_history", tools => tools.GetPriceHistory(""), "ticker must not be empty. Use search_instruments to find one." },
         { "get_price_history", tools => tools.GetPriceHistory("MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
-        { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
-        { "get_price_history", tools => tools.GetPriceHistory("MARP", new DateOnly(1899, 12, 31)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
-        { "get_top_movers", tools => tools.GetTopMovers(new DateOnly(9999, 12, 31)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
+        { "get_price_history", tools => tools.GetPriceHistory("MARP", "2026-06-01", "2026-01-01"), "from must be on or before to." },
+        { "get_price_history", tools => tools.GetPriceHistory("MARP", "1899-12-31"), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
+        { "get_top_movers", tools => tools.GetTopMovers("9999-12-31"), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
+        { "get_top_movers", tools => tools.GetTopMovers("30/06/2026"), "date must be a date in yyyy-MM-dd format, for example 2026-06-30." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 0), "count must be between 1 and 20." },
         { "get_top_movers", tools => tools.GetTopMovers(count: 21), "count must be between 1 and 20." },
         { "find_accounts", tools => tools.FindAccounts("a"), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(" a "), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(null!), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(new string('x', 101)), "name must be at most 100 characters." },
-        { "list_trades", tools => tools.ListTrades(0), "accountId must be a positive number. Use find_accounts to look it up." },
-        { "list_trades", tools => tools.ListTrades(1, new DateOnly(2026, 6, 1), new DateOnly(2026, 1, 1)), "from must be on or before to." },
-        { "list_trades", tools => tools.ListTrades(1, to: new DateOnly(2101, 1, 1)), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
-        { "list_trades", tools => tools.ListTrades(1, page: 0), "page must be between 1 and 1000." },
-        { "list_trades", tools => tools.ListTrades(1, page: 1001), "page must be between 1 and 1000." },
-        { "list_trades", tools => tools.ListTrades(1, ticker: "MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
-        { "get_positions", tools => tools.GetPositions(-1), "accountId must be a positive number. Use find_accounts to look it up." },
-        { "get_portfolio_summary", tools => tools.GetPortfolioSummary(0), "accountId must be a positive number. Use find_accounts to look it up." }
+        { "list_trades", tools => tools.ListTrades("45"), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." },
+        { "list_trades", tools => tools.ListTrades(""), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, "2026-06-01", "2026-01-01"), "from must be on or before to." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, to: "2101-01-01"), "Dates must be between 1900-01-01 and 2100-12-31. Leave the date out for no limit, or call get_dataset_info for the dates available." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, from: "last month"), "from must be a date in yyyy-MM-dd format, for example 2026-06-30." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, to: "2026-02-30"), "to must be a date in yyyy-MM-dd format, for example 2026-06-30." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, page: 0), "page must be between 1 and 1000." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, page: 1001), "page must be between 1 and 1000." },
+        { "list_trades", tools => tools.ListTrades(AccountKey, ticker: "MARPXXXXXXX"), "ticker must be at most 10 characters. Use search_instruments to find one." },
+        { "get_positions", tools => tools.GetPositions(null!), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." },
+        { "get_portfolio_summary", tools => tools.GetPortfolioSummary("not-a-key"), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." }
     };
 
     [Theory]
@@ -70,14 +76,12 @@ public class When_Trading_Tools_Are_Called
     public async Task it_should_pass_every_argument_and_the_cancellation_token_to_the_repository()
     {
         using var cancellation = new CancellationTokenSource();
-        var from = new DateOnly(2026, 1, 1);
-        var to = new DateOnly(2026, 6, 30);
 
-        await _tools.ListTrades(45, from, to, "MARP", 3, cancellation.Token);
+        await _tools.ListTrades(AccountKey, "2026-01-01", "2026-06-30", "MARP", 3, cancellation.Token);
 
-        await _repository.Received(1).ListTrades(45, from, to, "MARP", 3, cancellation.Token);
+        await _repository.Received(1).ListTrades(Key, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), "MARP", 3, cancellation.Token);
         Assert.Equal("list_trades", _audit.ToolName);
-        Assert.Equal(new { accountId = 45, from = (DateOnly?)from, to = (DateOnly?)to, ticker = (string?)"MARP", page = 3 }.ToString(),
+        Assert.Equal(new { accountKey = AccountKey, from = "2026-01-01", to = "2026-06-30", ticker = "MARP", page = 3 }.ToString(),
             _audit.Arguments?.ToString());
     }
 
@@ -86,21 +90,29 @@ public class When_Trading_Tools_Are_Called
     {
         await _tools.GetDatasetInfo();
         await _tools.SearchInstruments("MAR");
-        await _tools.GetPriceHistory("MARP", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30));
-        await _tools.GetTopMovers(new DateOnly(2026, 6, 30), 5);
+        await _tools.GetPriceHistory("MARP", "2026-01-01", "2026-06-30");
+        await _tools.GetTopMovers("2026-06-30", 5);
         await _tools.FindAccounts("Smith");
-        await _tools.ListTrades(45);
-        await _tools.GetPositions(45);
-        await _tools.GetPortfolioSummary(45);
+        await _tools.ListTrades(AccountKey);
+        await _tools.GetPositions(AccountKey);
+        await _tools.GetPortfolioSummary(AccountKey);
 
         await _repository.Received(1).GetDatasetInfo(Arg.Any<CancellationToken>());
         await _repository.Received(1).SearchInstruments("MAR", Arg.Any<CancellationToken>());
         await _repository.Received(1).GetPriceHistory("MARP", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), Arg.Any<CancellationToken>());
         await _repository.Received(1).GetTopMovers(new DateOnly(2026, 6, 30), 5, Arg.Any<CancellationToken>());
         await _repository.Received(1).FindAccounts("Smith", Arg.Any<CancellationToken>());
-        await _repository.Received(1).ListTrades(45, null, null, null, 1, Arg.Any<CancellationToken>());
-        await _repository.Received(1).GetPositions(45, Arg.Any<CancellationToken>());
-        await _repository.Received(1).GetPortfolioSummary(45, Arg.Any<CancellationToken>());
+        await _repository.Received(1).ListTrades(Key, null, null, null, 1, Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetPositions(Key, Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetPortfolioSummary(Key, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task it_should_treat_a_null_or_blank_optional_argument_as_left_out()
+    {
+        await _tools.ListTrades(AccountKey, null!, " ", null!);
+
+        await _repository.Received(1).ListTrades(Key, null, null, null, 1, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -109,12 +121,12 @@ public class When_Trading_Tools_Are_Called
         await _tools.GetTopMovers(count: 1);
         await _tools.GetTopMovers(count: 20);
         await _tools.FindAccounts("Al");
-        await _tools.ListTrades(1, page: 1000);
+        await _tools.ListTrades(AccountKey, page: 1000);
         await _tools.SearchInstruments(new string('x', 100));
         await _tools.FindAccounts(new string('x', 100));
         await _tools.GetPriceHistory(new string('X', 10));
-        await _tools.ListTrades(1, ticker: new string('X', 10));
-        await _tools.GetPriceHistory("MARP", new DateOnly(1900, 1, 1), new DateOnly(2100, 12, 31));
+        await _tools.ListTrades(AccountKey, ticker: new string('X', 10));
+        await _tools.GetPriceHistory("MARP", "1900-01-01", "2100-12-31");
 
         Assert.Equal(9, _repository.ReceivedCalls().Count());
     }

@@ -113,7 +113,7 @@ BEGIN
 END
 GO
 
-/* AccountNumber comes back MASKED (Dynamic Data Masking), so the agent works with AccountId instead. */
+/* AccountNumber comes back MASKED (Dynamic Data Masking), so the agent works with AccountKey instead. */
 CREATE OR ALTER PROCEDURE mcp.FindAccounts
     @Name NVARCHAR(100)
 AS
@@ -126,7 +126,7 @@ BEGIN
     DECLARE @Pattern NVARCHAR(300) = REPLACE(REPLACE(REPLACE(@Name, '[', '[[]'), '%', '[%]'), '_', '[_]');
 
     SELECT TOP (25)
-           a.AccountId, a.AccountNumber, c.FullName AS ClientName, c.Country, c.RiskProfile,
+           a.AccountKey, a.AccountNumber, c.FullName AS ClientName, c.Country, c.RiskProfile,
            a.AccountType, a.BaseCurrency, a.OpenedOn
     FROM   trading.Account a
     JOIN   trading.Client  c ON c.ClientId = a.ClientId
@@ -136,23 +136,24 @@ END
 GO
 
 CREATE OR ALTER PROCEDURE mcp.ListTrades
-    @AccountId INT,
-    @From      DATE = NULL,
-    @To        DATE = NULL,
-    @Ticker    NVARCHAR(10) = NULL,
-    @Page      INT = 1
+    @AccountKey UNIQUEIDENTIFIER,
+    @From       DATE = NULL,
+    @To         DATE = NULL,
+    @Ticker     NVARCHAR(10) = NULL,
+    @Page       INT = 1
 AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @PageSize INT = 50;
     IF @Page < 1    SET @Page = 1;
     IF @Page > 1000 SET @Page = 1000;
-    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
-        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
+    DECLARE @AccountId INT = (SELECT AccountId FROM trading.Account WHERE AccountKey = @AccountKey);
+    IF @AccountId IS NULL
+        THROW 50002, N'Unknown accountKey. Use find_accounts to look it up.', 1;
     IF @Ticker IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trading.Instrument WHERE Ticker = @Ticker)
         THROW 50001, N'Unknown ticker. Use search_instruments to find the right one.', 1;
 
-    SELECT t.TradeId, t.TradeTimestamp, i.Ticker, RTRIM(t.Side) AS Side,
+    SELECT t.TradeTimestamp, i.Ticker, RTRIM(t.Side) AS Side,
            t.Quantity, t.Price, t.Fees, t.Status
     FROM   trading.Trade t
     JOIN   trading.Instrument i ON i.InstrumentId = t.InstrumentId
@@ -166,12 +167,13 @@ END
 GO
 
 CREATE OR ALTER PROCEDURE mcp.GetPositions
-    @AccountId INT
+    @AccountKey UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
-        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
+    DECLARE @AccountId INT = (SELECT AccountId FROM trading.Account WHERE AccountKey = @AccountKey);
+    IF @AccountId IS NULL
+        THROW 50002, N'Unknown accountKey. Use find_accounts to look it up.', 1;
     SELECT TOP (200)
            Ticker, InstrumentName, Sector, Currency,
            NetQuantity, AvgBuyPrice, PriceAsOf, LastPrice, MarketValue, UnrealisedPnL,
@@ -184,12 +186,13 @@ GO
 
 /* One row per sector plus a TOTAL row. */
 CREATE OR ALTER PROCEDURE mcp.GetPortfolioSummary
-    @AccountId INT
+    @AccountKey UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM trading.Account WHERE AccountId = @AccountId)
-        THROW 50002, N'Unknown accountId. Use find_accounts to look it up.', 1;
+    DECLARE @AccountId INT = (SELECT AccountId FROM trading.Account WHERE AccountKey = @AccountKey);
+    IF @AccountId IS NULL
+        THROW 50002, N'Unknown accountKey. Use find_accounts to look it up.', 1;
     SELECT CASE WHEN GROUPING(Sector) = 1 THEN 'TOTAL' ELSE Sector END AS Sector,
            MAX(Currency)        AS Currency,
            COUNT(*)             AS Positions,

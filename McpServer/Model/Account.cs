@@ -1,7 +1,7 @@
 namespace TradingMcp.Model;
 
 public sealed record Account(
-    int AccountId,
+    Guid AccountKey,
     string AccountNumber,
     string ClientName,
     string Country,

@@ -10,9 +10,9 @@ public interface ITradingRepository
     Task<IReadOnlyList<Mover>> GetTopMovers(DateOnly? date, int count, CancellationToken ct);
     Task<IReadOnlyList<Account>> FindAccounts(string name, CancellationToken ct);
     Task<IReadOnlyList<Trade>> ListTrades(
-        int accountId, DateOnly? from, DateOnly? to, string? ticker, int page, CancellationToken ct);
-    Task<IReadOnlyList<Position>> GetPositions(int accountId, CancellationToken ct);
-    Task<IReadOnlyList<SectorSummary>> GetPortfolioSummary(int accountId, CancellationToken ct);
+        Guid accountKey, DateOnly? from, DateOnly? to, string? ticker, int page, CancellationToken ct);
+    Task<IReadOnlyList<Position>> GetPositions(Guid accountKey, CancellationToken ct);
+    Task<IReadOnlyList<SectorSummary>> GetPortfolioSummary(Guid accountKey, CancellationToken ct);
     Task WriteAuditAsync(
         string caller, string tool, string parameters, int? rows, int durationMs, bool success, string? error);
 }

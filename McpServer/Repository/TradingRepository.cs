@@ -55,15 +55,15 @@ public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRep
         QueryAsync<Account>("mcp.FindAccounts", new { Name = name }, ct);
 
     public Task<IReadOnlyList<Trade>> ListTrades(
-        int accountId, DateOnly? from, DateOnly? to, string? ticker, int page, CancellationToken ct) =>
+        Guid accountKey, DateOnly? from, DateOnly? to, string? ticker, int page, CancellationToken ct) =>
         QueryAsync<Trade>("mcp.ListTrades",
-            new { AccountId = accountId, From = ToDate(from), To = ToDate(to), Ticker = ticker, Page = page }, ct);
+            new { AccountKey = accountKey, From = ToDate(from), To = ToDate(to), Ticker = ticker, Page = page }, ct);
 
-    public Task<IReadOnlyList<Position>> GetPositions(int accountId, CancellationToken ct) =>
-        QueryAsync<Position>("mcp.GetPositions", new { AccountId = accountId }, ct);
+    public Task<IReadOnlyList<Position>> GetPositions(Guid accountKey, CancellationToken ct) =>
+        QueryAsync<Position>("mcp.GetPositions", new { AccountKey = accountKey }, ct);
 
-    public Task<IReadOnlyList<SectorSummary>> GetPortfolioSummary(int accountId, CancellationToken ct) =>
-        QueryAsync<SectorSummary>("mcp.GetPortfolioSummary", new { AccountId = accountId }, ct);
+    public Task<IReadOnlyList<SectorSummary>> GetPortfolioSummary(Guid accountKey, CancellationToken ct) =>
+        QueryAsync<SectorSummary>("mcp.GetPortfolioSummary", new { AccountKey = accountKey }, ct);
 
     /// <summary>Writes one audit row. Deliberately not cancellable: an audit entry should survive a cancelled request.</summary>
     public async Task WriteAuditAsync(

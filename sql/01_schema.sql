@@ -11,8 +11,14 @@ GO
 CREATE SCHEMA trading;
 GO
 
+/* Every table with an IDENTITY key also has a random GUID key (<Name>Key). The integers are fast for joins
+   and indexes, but they never leave the database: sequential numbers give away how many rows exist and let
+   anyone holding a token walk through them one by one. A procedure returns a key only when another tool
+   needs it as input. NEWID(), not NEWSEQUENTIALID(), so a key reveals nothing about its neighbours. */
+
 CREATE TABLE trading.Instrument (
     InstrumentId  INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Instrument PRIMARY KEY,
+    InstrumentKey UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_Instrument_Key DEFAULT (NEWID()) CONSTRAINT UQ_Instrument_Key UNIQUE,
     Ticker        NVARCHAR(10)  NOT NULL CONSTRAINT UQ_Instrument_Ticker UNIQUE,
     Name          NVARCHAR(100) NOT NULL,
     Sector        NVARCHAR(50)  NOT NULL,
@@ -38,6 +44,7 @@ CREATE TABLE trading.InstrumentPrice (
 
 CREATE TABLE trading.Client (
     ClientId     INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Client PRIMARY KEY,
+    ClientKey    UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_Client_Key DEFAULT (NEWID()) CONSTRAINT UQ_Client_Key UNIQUE,
     FullName     NVARCHAR(100) NOT NULL,
     Email        NVARCHAR(200) MASKED WITH (FUNCTION = 'email()') NOT NULL,   -- masked for users without UNMASK
     Country      NVARCHAR(50)  NOT NULL,
@@ -48,6 +55,7 @@ CREATE TABLE trading.Client (
 
 CREATE TABLE trading.Account (
     AccountId      INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Account PRIMARY KEY,
+    AccountKey     UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_Account_Key DEFAULT (NEWID()) CONSTRAINT UQ_Account_Key UNIQUE,
     ClientId       INT           NOT NULL CONSTRAINT FK_Account_Client REFERENCES trading.Client(ClientId),
     AccountNumber  NVARCHAR(20)  MASKED WITH (FUNCTION = 'partial(3,"XXXXX",3)') NOT NULL
         CONSTRAINT UQ_Account_Number UNIQUE,
@@ -60,6 +68,7 @@ CREATE INDEX IX_Account_ClientId ON trading.Account(ClientId);
 
 CREATE TABLE trading.Trade (
     TradeId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Trade PRIMARY KEY,
+    TradeKey        UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_Trade_Key DEFAULT (NEWID()) CONSTRAINT UQ_Trade_Key UNIQUE,
     AccountId       INT           NOT NULL CONSTRAINT FK_Trade_Account    REFERENCES trading.Account(AccountId),
     InstrumentId    INT           NOT NULL CONSTRAINT FK_Trade_Instrument REFERENCES trading.Instrument(InstrumentId),
     Side            CHAR(4)       NOT NULL CONSTRAINT CK_Trade_Side   CHECK (Side IN ('BUY','SELL')),
@@ -82,6 +91,7 @@ CREATE INDEX IX_Trade_Instrument_Time ON trading.Trade(InstrumentId, TradeTimest
 
 CREATE TABLE trading.AuditLog (
     AuditId        BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AuditLog PRIMARY KEY,
+    AuditKey       UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_AuditLog_Key DEFAULT (NEWID()) CONSTRAINT UQ_AuditLog_Key UNIQUE,
     OccurredAtUtc  DATETIME2(3)  NOT NULL CONSTRAINT DF_AuditLog_Time DEFAULT (SYSUTCDATETIME()),
     Caller         NVARCHAR(200) NULL,        -- token subject / client id
     ToolName       NVARCHAR(100) NOT NULL,
