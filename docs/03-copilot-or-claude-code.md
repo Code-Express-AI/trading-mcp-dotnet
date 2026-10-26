@@ -104,6 +104,13 @@ This adds the server only for the folder you run it in, so run it from the repos
 
 Start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
 
+To see which servers Claude Code has for this folder and whether each one connects, or to remove `trading` so you can add it again (for example with a different token), run these from the repository root:
+
+```sh
+claude mcp list
+claude mcp remove trading
+```
+
 ## Troubleshooting
 
 - **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
