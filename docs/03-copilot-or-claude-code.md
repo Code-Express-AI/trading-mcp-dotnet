@@ -102,7 +102,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 
 If it still isn't found, see [Fix your PATH](https://code.claude.com/docs/en/troubleshoot-install#command-not-found-claude-after-installation).
 
-Run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
+If the server is running, stop it first with Ctrl+C. Otherwise Claude Code can keep using an old token. Then run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
 
 ```sh
 claude mcp add --transport http trading http://localhost:5080/mcp --header "Authorization: Bearer <token>"
@@ -110,9 +110,9 @@ claude mcp add --transport http trading http://localhost:5080/mcp --header "Auth
 
 This adds the server only for the folder you run it in, so run it from the repository root, not your home folder. The output should end with `[project: <path to the repository>]`. Claude Code stores it in `.claude.json` in your home folder, not in the repository. Don't add `--scope project`: that writes the server, token included, to `.mcp.json` in the repository, where it could be committed.
 
-Start the server if it isn't running (`dotnet run --project McpServer`). Then start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
+Start the server again (`dotnet run --project McpServer`). Then start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
 
-To see which servers Claude Code has for this folder and whether each one connects, or to remove `trading` so you can add it again (for example with a different token), run these from the repository root:
+To see which servers Claude Code has for this folder and whether each one connects, or to remove `trading` so you can add it again (for example with a different token), run these from the repository root. Stop the server before you remove and add `trading`, and start it again afterwards.
 
 ```sh
 claude mcp list
@@ -145,7 +145,7 @@ claude mcp remove trading
 
 ### Claude Code
 
-- **Claude Code shows `trading` as failed, with a 401:** the token doesn't match. Run `claude mcp remove trading`, then add it again with the right token.
+- **Claude Code shows `trading` as failed, with a 401:** the token doesn't match. Stop the server, run `claude mcp remove trading`, add it again with the right token, then start the server again.
 - **Claude Code doesn't list `trading` in `/mcp` at all:** either the session started before you added the server, so start a new one, or you ran `claude mcp add` from a different folder. Run `claude mcp list` from the repository root to check, and add it again from there if it's missing.
 - **Still stuck installing Claude Code:** if you have the Claude Code extension in VS Code, ask it to add the `claude` install folder to your PATH.
 
