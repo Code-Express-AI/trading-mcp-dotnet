@@ -23,8 +23,11 @@ SQL Server requires passwords of at least 8 characters, with at least three of: 
 ## 2. Start SQL Server
 
 ```sh
+docker desktop start
 docker compose up -d --wait
 ```
+
+`docker desktop start` starts Docker Desktop and waits until it's ready. If it's already running, the command does nothing.
 
 This starts SQL Server 2022 in the background as a container called `trading-sqlserver`, listening on port 1433. The first time, it downloads the SQL Server image (over 2 GB on disk), which can take a few minutes. The database files live in a Docker volume, so your data survives restarts. `--wait` returns once SQL Server reports that it's healthy.
 
@@ -138,6 +141,8 @@ Type a query, then `GO` on its own line to run it, and `exit` to leave.
 
 ## Troubleshooting
 
+- **Docker Desktop isn't running:** Docker commands fail with `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified` on Windows, or `Cannot connect to the Docker daemon` on macOS and Linux. Run `docker desktop start`, then try again.
+- **`docker desktop start` isn't recognised:** it needs Docker Desktop 4.37 or later. Update Docker Desktop, or start it from the Start menu or Applications folder.
 - **Port 1433 is already in use** (common on Windows): SQL Server or SQL Server Express is probably installed on your machine. Stop that SQL Server service, then run `docker compose up -d --wait` again.
 - **The container is unhealthy:** the usual cause is an `SA_PASSWORD` that's too weak. Check with `docker compose logs sqlserver`.
 - **Login failed after changing `SA_PASSWORD`:** the password only applies when the container is first created. Run `docker compose down -v` to delete the database, then start again from step 2.
@@ -159,6 +164,13 @@ docker compose down -v
 docker compose up -d --wait
 docker compose run --rm db-init
 dotnet run --project DataGenerator
+```
+
+When you've finished with the project, you'll probably want those 2 GB of disk space back. Delete the container and data first, then the SQL Server image:
+
+```sh
+docker compose down -v
+docker image rm mcr.microsoft.com/mssql/server:2022-latest
 ```
 
 ## Use an existing SQL Server instead

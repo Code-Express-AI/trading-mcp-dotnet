@@ -16,8 +16,19 @@ MCP (Model Context Protocol) is the open standard that lets AI assistants discov
 
 We'll show you how to:
 
-- **Build a real MCP server, not hello world:** eight read-only tools that work together, descriptions that help the model pick the right tool, errors the model can act on, auditing, rate limiting and tests.
-- **Lock it down in layers, so each security layer holds even if the one above fails:** token authentication, rate limits, fixed tools, stored-procedure-only database access, data masking, and an audit log that can't be changed, even by `sa`.
+- **Build a real MCP server, not hello world:**
+  - Eight read-only tools that work together
+  - Descriptions that help the model pick the right tool
+  - Errors the model can act on
+  - Logging of rejected requests, so token guessing and flooding leave a trace
+  - Tests
+- **Lock it down in layers, so each security layer holds even if the one above fails:**
+  - Token authentication
+  - Rate limits
+  - Fixed, read-only tools with argument checks
+  - Stored-procedure-only database access
+  - Data masking
+  - A database audit log of every tool call, which can't be changed, even by `sa`
 
 ## Try it for free
 
@@ -49,9 +60,10 @@ cd trading-mcp-dotnet
 cp .env.example .env
 ```
 
-**3. Start the database and load the data:**
+**3. Start the database and load the data.** The first command starts Docker Desktop and waits until it's ready:
 
 ```sh
+docker desktop start
 docker compose up -d --wait
 docker compose run --rm db-init
 dotnet run --project DataGenerator
@@ -64,6 +76,8 @@ dotnet run --project McpServer
 ```
 
 **5. Check it's running.** Open [http://localhost:5080/health](http://localhost:5080/health) in a browser. It should return `{"status":"ok"}`.
+
+If a step fails, see the troubleshooting section of [guide 1](docs/01-docker-database.md#troubleshooting) for the database, or [guide 2](docs/02-run-server-and-inspector.md#troubleshooting) for the server.
 
 Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-inspector.md), or jump straight in and ask Copilot or Claude Code questions in [guide 3](docs/03-copilot-or-claude-code.md).
 

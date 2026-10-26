@@ -12,8 +12,10 @@ name: trading-mcp
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    # SQL Server only ships x64 images. On Apple Silicon, Docker Desktop runs it under Rosetta automatically,
+    # and naming the platform stops Docker warning about the mismatch.
+    platform: linux/amd64
     container_name: trading-sqlserver
-    # SQL Server only ships x64 images. On Apple Silicon, Docker Desktop runs it under Rosetta automatically.
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer                       # free for development and testing
@@ -34,6 +36,7 @@ services:
   # One-shot job: runs the SQL scripts, then exits. Only starts when asked (profile "init").
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-latest   # same image, used only for its sqlcmd tool
+    platform: linux/amd64
     profiles: ["init"]
     depends_on:
       sqlserver:
