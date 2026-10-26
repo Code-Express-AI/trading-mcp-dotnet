@@ -113,14 +113,19 @@ claude mcp remove trading
 
 ## Troubleshooting
 
+### VS Code / Copilot
+
 - **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
 - **401 or "unauthorized" errors:** the token doesn't match. VS Code remembers the token you entered, so to enter it again, change the input's `id` (for example to `trading-mcp-token-2`) in both places in the configuration, then restart the `trading` server.
 - **VS Code says authorisation is required but never asks for the token:** it's reusing a value you entered before. Change the input's `id` in both places, then start the server again. If it still doesn't ask, start it from the tools picker in Copilot Chat instead.
 - **If all else fails, hard-code the token:** in your user configuration, replace `${input:trading-mcp-token}` with the `MCP_TOKEN` value, so the header reads `"Bearer <token>"`, and delete the `inputs` block. The token is then stored as plain text, but only in your user configuration, not in the repository, and it only works against your local server. Never do this in a `.vscode/mcp.json` file inside a repository, where it could be committed.
+- **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
+
+### Claude Code
+
 - **Claude Code shows `trading` as failed, with a 401:** the token doesn't match. Run `claude mcp remove trading`, then add it again with the right token.
 - **Claude Code doesn't list `trading` in `/mcp` at all:** either the session started before you added the server, so start a new one, or you ran `claude mcp add` from a different folder. Run `claude mcp list` from the repository root to check, and add it again from there if it's missing.
 - **Still stuck installing Claude Code:** if you have the Claude Code extension in VS Code, ask it to add the `claude` install folder to your PATH.
-- **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
 
 ## Other MCP hosts
 
