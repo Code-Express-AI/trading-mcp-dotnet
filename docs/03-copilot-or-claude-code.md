@@ -1,10 +1,10 @@
 # 3. Ask questions from Copilot or Claude Code
 
-This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English. To use Claude Code, skip to [Use Claude Code instead](#use-claude-code-instead).
+This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English. To use Claude Code instead of Copilot, skip to [Use Claude Code instead](#use-claude-code-instead).
 
 Complete guides [1](01-docker-database.md) and [2](02-run-server-and-inspector.md).
 
-**Stop the server from guide 2 before you start** (`Ctrl+C` in its terminal). Add the configuration to VS Code first, then start the server. That's the order that works reliably.
+**Stop the server from guide 2 before you start** (`Ctrl+C` in its terminal). Add the configuration to VS Code first, then start the server. That's the order that works reliably. If you add the server to Copilot or Claude Code while it's running, you may run into connection problems.
 
 ## 1. Add the server to VS Code
 
