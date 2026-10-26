@@ -2,7 +2,9 @@
 
 This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English. To use Claude Code, skip to [Use Claude Code instead](#use-claude-code-instead).
 
-Complete [guide 1](01-docker-database.md), and keep the server from [guide 2](02-run-server-and-inspector.md) running at `http://localhost:5080`.
+Complete guides [1](01-docker-database.md) and [2](02-run-server-and-inspector.md).
+
+**Stop the server from guide 2 before you start** (`Ctrl+C` in its terminal). Add the configuration to VS Code first, then start the server. That's the order that works reliably.
 
 ## 1. Add the server to VS Code
 
@@ -10,35 +12,41 @@ Open the Command Palette (`Ctrl+Shift+P` on Windows and Linux, `Cmd+Shift+P` on 
 
 ```json
 {
-  "inputs": [
-    {
-      "type": "promptString",
-      "id": "trading-mcp-token",
-      "description": "Bearer token for the local trading MCP server",
-      "password": true
-    }
-  ],
   "servers": {
     "trading": {
       "type": "http",
       "url": "http://localhost:5080/mcp",
       "headers": {
-        "Authorization": "Bearer ${input:trading-mcp-token}"
+        "Authorization": "Bearer <token>"
       }
     }
   }
 }
 ```
 
-The token isn't written in the file. VS Code asks for it the first time it connects and stores it securely. Enter the `MCP_TOKEN` value from `.env`, or the token you set in user-secrets. Because this is your user configuration, not a file in the repository, nothing secret can be committed by accident. For all the options, see the [VS Code MCP documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
+Replace `<token>` with the `MCP_TOKEN` value from `.env`, or the token you set in user-secrets. The token is stored as plain text, but only in your user configuration, not in the repository, and it only works against your local server. Never put it in a `.vscode/mcp.json` file inside a repository, where it could be committed.
 
-## 2. Connect
+VS Code can prompt for the token instead, using an `inputs` block and `${input:...}`, but the Copilot Agents window doesn't support input variables. For a local demo, we keep it simple and write the token in. For all the options, see the [VS Code MCP documentation](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
 
-Save the file, then start the `trading` server from VS Code's MCP server list (or the **Start** link that appears above it in the file). This only connects VS Code to the server that's already running; it doesn't start the .NET app. If VS Code asks whether you trust the server, confirm.
+Save the file.
 
-Open Copilot Chat, switch it to **Agent** mode, and open the tools picker. The eight trading tools should be listed and selected.
+## 2. Start the server
 
-## 3. Ask questions
+From the repository root, start the server and leave it running in its own terminal:
+
+```sh
+dotnet run --project McpServer
+```
+
+## 3. Connect
+
+Open Copilot Chat and switch it to **Agent** mode. If VS Code asks whether you trust the `trading` server, confirm. Then ask:
+
+- "List the tools on the trading MCP server, then call one to check it works. Use the server, not the code in this repository."
+
+Copilot can read the repository, so if you just ask what tools there are, it may answer from the source code instead of calling the server. That answer looks right even when nothing is connected. Check that Copilot shows a tool call. The eight trading tools should also be listed and selected in the tools picker.
+
+## 4. Ask questions
 
 Try these:
 
@@ -94,7 +102,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 
 If it still isn't found, see [Fix your PATH](https://code.claude.com/docs/en/troubleshoot-install#command-not-found-claude-after-installation).
 
-With the server still running, run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
+Run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
 
 ```sh
 claude mcp add --transport http trading http://localhost:5080/mcp --header "Authorization: Bearer <token>"
@@ -102,7 +110,7 @@ claude mcp add --transport http trading http://localhost:5080/mcp --header "Auth
 
 This adds the server only for the folder you run it in, so run it from the repository root, not your home folder. The output should end with `[project: <path to the repository>]`. Claude Code stores it in `.claude.json` in your home folder, not in the repository. Don't add `--scope project`: that writes the server, token included, to `.mcp.json` in the repository, where it could be committed.
 
-Start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
+Start the server if it isn't running (`dotnet run --project McpServer`). Then start Claude Code with `claude`, run `/mcp`, and check that `trading` shows as connected. A session that was already running, in the terminal or the VS Code extension, won't see the new server, so start a new one. The VS Code extension can use the server too, as long as VS Code has the repository folder open. Then try the questions above, including the delete. Like Copilot, Claude Code asks you to approve each tool call before it runs.
 
 To see which servers Claude Code has for this folder and whether each one connects, or to remove `trading` so you can add it again (for example with a different token), run these from the repository root:
 
@@ -116,9 +124,23 @@ claude mcp remove trading
 ### VS Code / Copilot
 
 - **No trading tools in the tools picker:** check the server is still running and `http://localhost:5080/health` returns `{"status":"ok"}`, then restart the `trading` server in VS Code.
-- **401 or "unauthorized" errors:** the token doesn't match. VS Code remembers the token you entered, so to enter it again, change the input's `id` (for example to `trading-mcp-token-2`) in both places in the configuration, then restart the `trading` server.
-- **VS Code says authorisation is required but never asks for the token:** it's reusing a value you entered before. Change the input's `id` in both places, then start the server again. If it still doesn't ask, start it from the tools picker in Copilot Chat instead.
-- **If all else fails, hard-code the token:** in your user configuration, replace `${input:trading-mcp-token}` with the `MCP_TOKEN` value, so the header reads `"Bearer <token>"`, and delete the `inputs` block. The token is then stored as plain text, but only in your user configuration, not in the repository, and it only works against your local server. Never do this in a `.vscode/mcp.json` file inside a repository, where it could be committed.
+- **401 or "unauthorized" errors:** the token doesn't match. Check that the header reads `Bearer ` followed by the exact `MCP_TOKEN` value, with no `<` or `>` left in, then restart the `trading` server.
+- **"Input and command variables are not supported by the Copilot harness":** the configuration still uses `${input:...}`. Replace it with the token itself, as shown in step 1, and delete the `inputs` block.
+- **"Failed to read configuration from .../.copilot/mcp-config.json: mcpServers: Required":** the Copilot CLI's own configuration file is empty or invalid. The Agents window reads it as well as the VS Code configuration. Delete it, then restart VS Code:
+
+  Windows (PowerShell):
+
+  ```powershell
+  Remove-Item "$HOME\.copilot\mcp-config.json"
+  ```
+
+  macOS / Linux:
+
+  ```sh
+  rm ~/.copilot/mcp-config.json
+  ```
+
+- **Copilot lists the tools but never calls them:** it's probably reading them from the code. Ask again as in step 3, telling it to use the server and not the code.
 - **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
 
 ### Claude Code
