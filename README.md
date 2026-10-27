@@ -43,6 +43,8 @@ Everything except the optional Azure deployment runs on your own machine. You'll
 
 All of it is free for personal use. SQL Server runs in Docker as the free Developer edition, and the Azure deployment fits within Azure's free tiers for App Service and Azure SQL Database.
 
+We know some of you can't run Docker, or host a database at all, on a work machine because of security restrictions. That's fine: everything here works on a personal machine at home.
+
 ## Quick start
 
 These commands work unchanged in PowerShell, macOS and Linux. After step 1, run everything from the repository root. For an explanation of each step, see the [step-by-step guides](#step-by-step-guides), which also cover troubleshooting.

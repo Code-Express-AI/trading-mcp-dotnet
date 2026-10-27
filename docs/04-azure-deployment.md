@@ -10,9 +10,9 @@ Everything here fits Azure's free tiers: the [Azure SQL Database free offer](htt
 
 1. Create an Azure SQL logical server and an empty database. Add a firewall rule for your own machine's IP address while you set it up.
 2. Connect to the database as its administrator and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. Skip `00_create_database.sql`. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`.
-3. Load the data from your machine, connecting as the administrator:
+3. Load the data from your machine, connecting as the administrator. Keep the single quotes, otherwise your shell can change characters such as `$` in the password:
    ```sh
-   dotnet run --project DataGenerator -- "Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True" --reset
+   dotnet run --project DataGenerator -- 'Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True' --reset
    ```
 
 Never use `TrustServerCertificate=True` with Azure SQL: Azure has a proper certificate, so leave certificate checking on.
@@ -48,7 +48,7 @@ Follow [Entra ID authentication for the MCP server](entra-setup.md) to register 
 Then check the deployment:
 
 1. Open `https://<app-name>.azurewebsites.net/health`. It should return `{"status":"ok"}`.
-2. Call a tool with MCP Inspector, using the Entra token:
+2. Call a tool with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector), using the Entra token:
    ```sh
    npx @modelcontextprotocol/inspector --cli https://<app-name>.azurewebsites.net/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info
    ```

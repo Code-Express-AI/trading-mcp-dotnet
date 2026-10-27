@@ -30,6 +30,14 @@ To check the server is up, open [http://localhost:5080/health](http://localhost:
 
 Inspector needs [Node.js](https://nodejs.org/). This is the only part of the project that does. If you'd rather not install it, [Postman](https://www.postman.com/) can also connect to MCP servers: create an MCP request, and use the same URL and header shown below.
 
+We know some of you can't run npm or npx on a work machine because of security restrictions. That's fine: Inspector is optional. Skip ahead to [guide 3](03-copilot-or-claude-code.md) to connect the server to Copilot or Claude Code. After you've asked a few questions there, come back and [check the audit log](#3-check-the-audit-log) to see the tool calls behind each answer.
+
+On Windows, run this once first, otherwise Windows PowerShell refuses to run `npx` and says `running scripts is disabled on this system`. It only changes the setting for your user account. Answer `Y` if it asks you to confirm:
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
 ### Use the web interface
 
 In a second terminal, run:
@@ -118,6 +126,8 @@ Once any token is set in user-secrets, `MCP_TOKEN` in `.env` is no longer accept
 ## Troubleshooting
 
 - **"No bearer tokens are set":** `MCP_TOKEN` is missing from `.env`. Add it from `.env.example`.
+- **`npx` isn't recognised after installing Node.js:** open a new terminal. In VS Code on Windows, a new terminal isn't enough: quit and reopen VS Code.
+- **`npx` still won't run, or can't download Inspector** (common on work machines): Inspector is optional, so skip it and continue with [guide 3](03-copilot-or-claude-code.md).
 - **Inspector can't connect, or reports that authentication is required:** check the URL ends in `/mcp`, and that the header value is `Bearer ` followed by the token, exactly as it is in `.env` or user-secrets.
 - **Port 5080 is in use:** run `dotnet run --project McpServer --urls http://localhost:5081`, and use that port in Inspector and VS Code.
 

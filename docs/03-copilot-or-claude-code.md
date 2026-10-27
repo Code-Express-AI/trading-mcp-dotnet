@@ -2,9 +2,9 @@
 
 This guide connects GitHub Copilot in VS Code to the MCP server, so you can ask questions about the trading data in plain English. To use Claude Code instead of Copilot, skip to [Use Claude Code instead](#use-claude-code-instead).
 
-Complete guides [1](01-docker-database.md) and [2](02-run-server-and-inspector.md).
+Complete [guide 1](01-docker-database.md). [Guide 2](02-run-server-and-inspector.md) is optional.
 
-**Stop the server from guide 2 before you start** (`Ctrl+C` in its terminal). Add the configuration to VS Code first, then start the server. That's the order that works reliably. If you add the server to Copilot or Claude Code while it's running, you may run into connection problems.
+**If the server from guide 2 is still running, stop it before you start** (`Ctrl+C` in its terminal). Add the configuration to VS Code first, then start the server. That's the order that works reliably. If you add the server to Copilot or Claude Code while it's running, you may run into connection problems.
 
 ## 1. Add the server to VS Code
 
@@ -100,7 +100,7 @@ macOS / Linux (on Linux with bash, use `~/.bashrc` instead of `~/.zshrc`):
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
 
-If it still isn't found, see [Fix your PATH](https://code.claude.com/docs/en/troubleshoot-install#command-not-found-claude-after-installation).
+In VS Code on Windows, a new terminal isn't enough: quit and reopen VS Code. If `claude` still isn't found, see [Fix your PATH](https://code.claude.com/docs/en/troubleshoot-install#command-not-found-claude-after-installation).
 
 If the server is running, stop it first with Ctrl+C. Otherwise Claude Code can keep using an old token. Then run this from the repository root, replacing `<token>` with the `MCP_TOKEN` value from `.env`:
 

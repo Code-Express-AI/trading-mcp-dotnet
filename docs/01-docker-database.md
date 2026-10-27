@@ -141,6 +141,7 @@ Type a query, then `GO` on its own line to run it, and `exit` to leave.
 
 ## Troubleshooting
 
+- **A command fails in Command Prompt or Git Bash on Windows**, for example with `'cp' is not recognized`: run the commands in PowerShell, the default terminal in Windows Terminal and VS Code.
 - **Docker Desktop isn't running:** Docker commands fail with `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified` on Windows, or `Cannot connect to the Docker daemon` on macOS and Linux. Run `docker desktop start`, then try again.
 - **`docker desktop start` isn't recognised:** it needs Docker Desktop 4.37 or later. Update Docker Desktop, or start it from the Start menu or Applications folder.
 - **Port 1433 is already in use** (common on Windows): SQL Server or SQL Server Express is probably installed on your machine. Stop that SQL Server service, then run `docker compose up -d --wait` again.
@@ -179,9 +180,9 @@ You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead
 
 1. For SQL Server, run `sql/00_create_database.sql` as an administrator connected to `master`. For Azure SQL Database, create an empty database in Azure and skip this script.
 2. Connect to `TradingDemo` and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`, and keep it for the MCP server's connection string.
-3. Load the data as an administrator. Without Docker there's no `.env` file, so pass the connection string:
+3. Load the data as an administrator. Without Docker there's no `.env` file, so pass the connection string. Keep the single quotes, otherwise your shell can change characters such as `$` in the password:
    ```sh
-   dotnet run --project DataGenerator -- "Server=<server>;Database=TradingDemo;User ID=<admin>;Password=<admin-password>;Encrypt=True"
+   dotnet run --project DataGenerator -- 'Server=<server>;Database=TradingDemo;User ID=<admin>;Password=<admin-password>;Encrypt=True'
    ```
    To keep the password out of your shell history, put the connection string in the `TRADING_DB_CONNECTION` environment variable instead and leave it off the command.
 

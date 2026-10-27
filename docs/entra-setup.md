@@ -63,7 +63,7 @@ $body = @{
   client_secret = "<daemon-secret>"
   scope = "api://<api-client-id>/.default"
 }
-Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" -Body $body
+(Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token" -Body $body).access_token
 ```
 
 macOS / Linux:
@@ -96,18 +96,16 @@ Setting `Auth:Mode` back to `StaticTokens` returns to the simple bearer-token mo
 
 ## 4. Test it
 
+On Windows, type `curl.exe` rather than `curl`, otherwise Windows PowerShell runs its own `Invoke-WebRequest` command, which doesn't accept these options. `curl.exe` comes with Windows 10 and 11.
+
 Windows (PowerShell):
 
 ```powershell
 # No token -> 401, with a WWW-Authenticate header pointing at the protected-resource metadata
-try {
-  Invoke-WebRequest -Method Post -Uri "http://localhost:5080/mcp"
-} catch {
-  $_.Exception.Response.StatusCode
-}
+curl.exe -i -X POST http://localhost:5080/mcp
 
 # The metadata document that tells clients which authorization server to use
-Invoke-RestMethod -Uri "http://localhost:5080/.well-known/oauth-protected-resource"
+curl.exe -s http://localhost:5080/.well-known/oauth-protected-resource
 ```
 
 macOS / Linux:
@@ -120,7 +118,7 @@ curl -i -X POST http://localhost:5080/mcp
 curl -s http://localhost:5080/.well-known/oauth-protected-resource
 ```
 
-With a valid token, the MCP endpoint answers. For example, with MCP Inspector:
+With a valid token, the MCP endpoint answers. For example, with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector):
 
 ```sh
 npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info

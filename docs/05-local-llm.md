@@ -8,7 +8,7 @@ A local model also means the trading data never leaves your machine, which matte
 
 ## Before you start
 
-- Complete guides [1](01-docker-database.md), [2](02-run-server-and-inspector.md) and [3](03-copilot-or-claude-code.md), and keep the server running.
+- Complete guides [1](01-docker-database.md) and [3](03-copilot-or-claude-code.md), and keep the server running.
 - Install [Ollama](https://ollama.com/).
 
 ## Set up Ollama in VS Code
