@@ -1,0 +1,11 @@
+Secure, read-only MCP server for SQL Server
+https://github.com/Code-Express-AI/trading-mcp-dotnet
+
+Copyright 2026 Liam Grossmann, trading as Code Express AI
+https://codeexpress.ai
+https://www.youtube.com/@CodeExpressAI
+
+The code is licensed under the Apache License 2.0 (see LICENSE).
+The documentation, README.md and the docs/ folder, is licensed under
+CC BY-SA 4.0 (see LICENSE-DOCS). Code snippets in the documentation
+are licensed under the Apache License 2.0.
