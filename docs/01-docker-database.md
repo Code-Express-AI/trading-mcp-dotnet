@@ -2,7 +2,7 @@
 
 This guide starts SQL Server in Docker, creates the trading database, and loads it with sample data: a fictional bank with clients, accounts, trades and daily share prices. None of it is real. It then shows how the database is locked down, and lets you try it for yourself.
 
-The commands are the same as steps 2 and 3 of the README's [Quick start](../README.md#quick-start), and work unchanged in PowerShell, macOS and Linux. Run them from the repository root, with Docker Desktop running.
+The commands are the same as steps 2 and 3 of the README's [Quick start](../README.md#quick-start). Apart from generating the token, they work unchanged in PowerShell, macOS and Linux. Run them from the repository root, with Docker Desktop running.
 
 ## 1. Create your settings
 
@@ -17,6 +17,20 @@ Open `.env` in VS Code (files starting with a dot are hidden in Finder and Explo
 | `SA_PASSWORD` | The SQL Server administrator. The DataGenerator uses it to load the data |
 | `MCP_READER_PASSWORD` | `mcp_reader`, the locked-down login the MCP server uses |
 | `MCP_TOKEN` | The bearer token MCP clients send to the server, 32 characters or more |
+
+Generate the token with one of these commands, and paste the result into `.env` as `MCP_TOKEN`:
+
+Windows (PowerShell):
+
+```powershell
+[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+macOS / Linux:
+
+```bash
+openssl rand -hex 32
+```
 
 SQL Server requires passwords of at least 8 characters, with at least three of: uppercase, lowercase, digits and symbols. Avoid the characters listed in `.env.example`. `.env` is ignored by Git, so your passwords never leave your machine.
 

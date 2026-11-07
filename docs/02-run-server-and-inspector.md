@@ -125,7 +125,7 @@ Once any token is set in user-secrets, `MCP_TOKEN` in `.env` is no longer accept
 
 ## Troubleshooting
 
-- **"No bearer tokens are set":** `MCP_TOKEN` is missing from `.env`. Add it from `.env.example`.
+- **"No bearer tokens are set":** `MCP_TOKEN` is missing from `.env`. Generate one as shown in [guide 1](01-docker-database.md#1-create-your-settings).
 - **`npx` isn't recognised after installing Node.js:** open a new terminal. In VS Code on Windows, a new terminal isn't enough: quit and reopen VS Code.
 - **`npx` still won't run, or can't download Inspector** (common on work machines): Inspector is optional, so skip it and continue with [guide 3](03-copilot-or-claude-code.md).
 - **Inspector can't connect, or reports that authentication is required:** check the URL ends in `/mcp`, and that the header value is `Bearer ` followed by the token, exactly as it is in `.env` or user-secrets.

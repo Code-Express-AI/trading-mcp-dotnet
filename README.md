@@ -47,7 +47,7 @@ We know some of you can't run Docker, or host a database at all, on a work machi
 
 ## Quick start
 
-These commands work unchanged in PowerShell, macOS and Linux. After step 1, run everything from the repository root. For an explanation of each step, see the [step-by-step guides](#step-by-step-guides), which also cover troubleshooting.
+Apart from generating the token, these commands work unchanged in PowerShell, macOS and Linux. After step 1, run everything from the repository root. For an explanation of each step, see the [step-by-step guides](#step-by-step-guides), which also cover troubleshooting.
 
 **1. Get the code:**
 
@@ -56,10 +56,24 @@ git clone https://github.com/Code-Express-AI/trading-mcp-dotnet.git
 cd trading-mcp-dotnet
 ```
 
-**2. Create your settings.** Copy the example file, then change the two passwords and the token in `.env`. Open it in VS Code: files starting with a dot are hidden in Finder and Explorer.
+**2. Create your settings.** Copy the example file:
 
 ```sh
 cp .env.example .env
+```
+
+Open `.env` in VS Code (files starting with a dot are hidden in Finder and Explorer). Change the two passwords, then generate a token and paste it in as `MCP_TOKEN`:
+
+Windows (PowerShell):
+
+```powershell
+[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+macOS / Linux:
+
+```bash
+openssl rand -hex 32
 ```
 
 **3. Start the database and load the data.** The first command starts Docker Desktop and waits until it's ready:
