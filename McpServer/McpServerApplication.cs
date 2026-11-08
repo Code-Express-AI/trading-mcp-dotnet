@@ -48,9 +48,13 @@ internal static class McpServerApplication
         // Anonymous, so a hosting platform can check the server is up. It doesn't touch the database.
         application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
-        // First, so it sees the final status code of every request that authentication or the rate limiter rejects.
+        // First, so it sees the final status code of every request that the origin check, authentication or the
+        // rate limiter rejects.
         // Host filtering rejects a wrong Host header before this runs; the framework logs those (see appsettings.json).
         application.UseMiddleware<RejectedRequestLogger>();
+
+        // Before authentication: a request from a web page on another site is refused, whatever token it carries.
+        application.UseMiddleware<OriginCheckMiddleware>();
 
         if (useEntra)
         {
