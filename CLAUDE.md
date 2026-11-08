@@ -54,6 +54,7 @@ To add a tool:
 - The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on each `mcp` procedure, granted one by one at the end of `03_procedures.sql`, nothing else. Never grant on the whole schema: a procedure added to `mcp` by mistake would become callable.
 - Never add dynamic SQL, raw-query tools, or write operations on business tables.
 - Integer IDs never leave the database. Every table with an `IDENTITY` key also has a random GUID `<Name>Key` (`DEFAULT NEWID()`, not `NEWSEQUENTIALID()`). Procedures take and return the key, and return it only when another tool needs it as input. An integration test fails if a procedure returns a column ending in `Id`.
+- `OriginCheckMiddleware` runs before authentication and refuses any `Origin` header not in `Mcp:AllowedOrigins` (empty by default), as the MCP specification requires. If a host sends an `Origin`, add that exact origin to the list. Never use wildcards or skip the check.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
 - The server reads `.env` only in Development, and only for settings not configured elsewhere. Never let it read `.env` in Production.
 - Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`, an append-only ledger table. Never make it updatable.
