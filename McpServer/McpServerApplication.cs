@@ -46,7 +46,9 @@ internal static class McpServerApplication
         }
 
         // Anonymous, so a hosting platform can check the server is up. It doesn't touch the database.
-        application.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+        // Not rate limited: every anonymous caller shares one bucket, so anyone could use it up and make the
+        // platform's own probes fail.
+        application.MapGet("/health", () => Results.Ok(new { status = "ok" })).DisableRateLimiting();
 
         // First, so it sees the final status code of every request that the origin check, authentication or the
         // rate limiter rejects.

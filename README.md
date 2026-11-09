@@ -8,6 +8,8 @@ This project uses MCP to connect AI assistants, such as GitHub Copilot or Claude
 
 ![Asking Copilot about the trading data](demo.gif)
 
+Watch the [intro video on YouTube](https://youtu.be/4QRRuhrqIQU) to see it in action, including Copilot trying to delete data and failing.
+
 ## What is MCP?
 
 MCP (Model Context Protocol) is the open standard that lets AI assistants discover and call tools in your own systems. If you've built a web API, you already know most of it. The difference is who calls it: not code you wrote, but an AI assistant that reads each tool's description and decides for itself what to call. In .NET, turning a method into an MCP tool takes just one attribute: `[McpServerTool]`. Making it safe to point at a real database is the hard part, and that's what this project shows.
@@ -101,11 +103,12 @@ Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-insp
 
 | # | Video | Guide |
 |---|-------|-------|
-| 1 | Intro demo: Copilot answers questions from the database, but our security layers stop it deleting anything | – |
-| 2 | Set up SQL Server in Docker, and the database security behind it | [Guide 1](docs/01-docker-database.md) |
-| 3 | Test the server with MCP Inspector, then connect Copilot | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-copilot-or-claude-code.md) |
+| 1 | [Intro demo: Copilot answers questions from the database, but our security layers stop it deleting anything](https://youtu.be/4QRRuhrqIQU) | – |
+| 2 | [Set up SQL Server in Docker, and the database security behind it](https://youtu.be/OSnbjGC1-80) | [Guide 1](docs/01-docker-database.md) |
+| 3 | Run the MCP server, test it with MCP Inspector, then connect Copilot and Claude Code | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-copilot-or-claude-code.md) |
+| 4 | Inside the MCP server: the code, and the security layers that lock it down | [Architecture](#architecture) and [Security design](#security-design) |
 
-Video links will be added as episodes are published. The guides for [deploying to Azure](docs/04-azure-deployment.md) and [running with a local model](docs/05-local-llm.md) are already here; videos for them may follow, depending on viewer demand.
+Links to the other videos will be added as they're published. The guides for [deploying to Azure with Entra ID](docs/04-azure-deployment.md) and [running with a local model](docs/05-local-llm.md) are already here; videos for them may follow, depending on viewer demand.
 
 ## Architecture
 
