@@ -10,7 +10,7 @@ namespace TradingMcp.Repository;
 /// The server's entire view of the database. Every method is a single stored-procedure call
 /// (schema "mcp"), and the SQL login behind it has EXECUTE on those procedures and nothing else.
 /// </summary>
-public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRepository
+public sealed class TradingRepository(Func<SqlConnection> connect, Func<string> caller) : ITradingRepository
 {
     private const int QueryTimeoutSeconds = 15;
 
@@ -18,11 +18,34 @@ public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRep
     // with THROW and an error number of 50000 or more. Those messages are written for the model.
     private const int FirstUserDefinedErrorNumber = 50000;
 
+    // Every session carries the caller, so the database can read who's asking with SESSION_CONTEXT(N'caller').
+    // read_only: nothing later in the session can change it. A pooled connection is reset before it's reused,
+    // which clears it for the next caller.
+    internal async Task<SqlConnection> OpenAsync(CancellationToken ct)
+    {
+        var conn = connect();
+        try
+        {
+            await conn.OpenAsync(ct);
+            await conn.ExecuteAsync(new CommandDefinition(
+                "sys.sp_set_session_context",
+                new { key = "caller", value = caller(), read_only = true },
+                commandType: CommandType.StoredProcedure,
+                cancellationToken: ct));
+            return conn;
+        }
+        catch
+        {
+            await conn.DisposeAsync();
+            throw;
+        }
+    }
+
     private async Task<IReadOnlyList<T>> QueryAsync<T>(string procedure, object? args, CancellationToken ct)
     {
         try
         {
-            await using var conn = connect();
+            await using var conn = await OpenAsync(ct);
             var rows = await conn.QueryAsync<T>(new CommandDefinition(
                 procedure, args,
                 commandType: CommandType.StoredProcedure,
@@ -69,7 +92,7 @@ public sealed class TradingRepository(Func<SqlConnection> connect) : ITradingRep
     public async Task WriteAuditAsync(
         string caller, string tool, string parameters, int? rows, int durationMs, bool success, string? error)
     {
-        await using var conn = connect();
+        await using var conn = await OpenAsync(CancellationToken.None);
         await conn.ExecuteAsync(new CommandDefinition(
             "mcp.WriteAudit",
             new

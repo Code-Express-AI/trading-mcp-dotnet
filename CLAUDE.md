@@ -30,7 +30,7 @@ dotnet run --project McpServer                                       # run the s
 
 ## How a tool call works
 
-Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradingRepository` → one stored procedure in the `mcp` schema.
+Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradingRepository` → one stored procedure in the `mcp` schema. Every connection the repository opens sets the caller, read-only, so SQL can read it with `SESSION_CONTEXT(N'caller')`.
 
 To add a tool:
 

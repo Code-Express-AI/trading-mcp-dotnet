@@ -23,8 +23,14 @@ internal static class McpServerApplication
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = MaxRequestBodyBytes);
 
         builder.Services.AddSingleton<Func<SqlConnection>>(_ => () => new SqlConnection(connectionString));
-        builder.Services.AddSingleton<ITradingRepository, TradingRepository>();
         builder.Services.AddHttpContextAccessor();
+        builder.Services.AddSingleton<ITradingRepository>(services =>
+        {
+            var http = services.GetRequiredService<IHttpContextAccessor>();
+            return new TradingRepository(
+                services.GetRequiredService<Func<SqlConnection>>(),
+                () => http.HttpContext?.User.GetCallerId() ?? "anonymous");
+        });
         builder.Services.AddSingleton<IAuditService, AuditService>();
         if (useEntra)
         {
