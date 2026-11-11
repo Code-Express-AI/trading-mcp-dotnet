@@ -1,0 +1,23 @@
+# Dependabot opens a pull request when a package has an update, and CI tests it before we merge.
+# Security fixes don't wait for the schedule: Dependabot security updates open them straight away.
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - /DataGenerator
+      - /McpServer
+      - /XTests
+    schedule:
+      interval: monthly
+    groups:
+      nuget:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
