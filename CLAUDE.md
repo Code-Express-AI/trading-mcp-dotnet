@@ -37,7 +37,7 @@ To add a tool:
 1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`, and a `GRANT EXECUTE ON mcp.<Name> TO mcp_reader;` line to the list at the end of the file. Return fixed columns (GUID keys, never integer IDs), enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
 2. Add the method to `ITradingRepository` and `TradingRepository`, as a single `QueryAsync` call.
 3. Add the tool to `McpServer/Tools/TradingTools.cs` with `[McpServerTool(Name = "snake_case", ReadOnly = true)]` and a clear `[Description]`. The model reads the descriptions to decide which tool to call, so they matter. Check the arguments at the top of the audit lambda with `ToolArguments.Require(...)`, with messages that tell the model what to do instead. Never let a bad argument quietly return an empty result.
-4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`.
+4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`. Add its `GRANT EXECUTE` line to the expected list in `XTests/Integration/When_Mcp_Reader_Permissions_Are_Listed.cs`.
 
 ## Tests
 
