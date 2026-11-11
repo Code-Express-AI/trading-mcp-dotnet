@@ -13,6 +13,8 @@ public class When_Trading_Tools_Are_Called
     private readonly TradingTools _tools;
     private const string AccountKey = "3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17";
     private static readonly Guid Key = Guid.Parse(AccountKey);
+    private const string NameMessage = "name may only contain letters, digits, spaces, apostrophes ('), hyphens and full stops.";
+    private const string TickerMessage = "ticker may only contain letters and digits, for example 'BRIP'. Use search_instruments to find one.";
 
     public When_Trading_Tools_Are_Called()
     {
@@ -35,6 +37,18 @@ public class When_Trading_Tools_Are_Called
         { "find_accounts", tools => tools.FindAccounts(" a "), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(null!), "name must be at least 2 characters, for example 'Thompson'." },
         { "find_accounts", tools => tools.FindAccounts(new string('x', 101)), "name must be at most 100 characters." },
+        // Characters the SQL collation ignores: two of them would otherwise match every client.
+        { "find_accounts", tools => tools.FindAccounts("﻿﻿"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("‍‍"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("⁠⁠"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("͏͏"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("\0\0"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("șș"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("\uD800\uD800"), NameMessage },
+        { "find_accounts", tools => tools.FindAccounts("%%"), NameMessage },
+        { "search_instruments", tools => tools.SearchInstruments("﻿﻿"), "text may only contain letters, digits, spaces, apostrophes ('), hyphens and full stops." },
+        { "get_price_history", tools => tools.GetPriceHistory("BRIP﻿"), TickerMessage },
+        { "list_trades", tools => tools.ListTrades(AccountKey, ticker: "BRIP﻿"), TickerMessage },
         { "list_trades", tools => tools.ListTrades("45"), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." },
         { "list_trades", tools => tools.ListTrades(""), "accountKey must be the accountKey returned by find_accounts, for example 3f2b8c1e-7d4a-4e9b-9c61-2a5d8e0f4b17." },
         { "list_trades", tools => tools.ListTrades(AccountKey, "2026-06-01", "2026-01-01"), "from must be on or before to." },
@@ -129,6 +143,20 @@ public class When_Trading_Tools_Are_Called
         await _tools.GetPriceHistory("MARP", "1900-01-01", "2100-12-31");
 
         Assert.Equal(9, _repository.ReceivedCalls().Count());
+    }
+
+    [Theory]
+    [InlineData("O'Brien", "O'Brien")]
+    [InlineData("Smith-Jones", "Smith-Jones")]
+    [InlineData("St. John", "St. John")]
+    [InlineData("Łukasz", "Łukasz")]
+    [InlineData("José", "José")]
+    [InlineData("José", "José")] // the accent sent as a separate combining character
+    public async Task it_should_pass_real_names_to_the_repository_with_accents_composed(string name, string expected)
+    {
+        await _tools.FindAccounts(name);
+
+        await _repository.Received(1).FindAccounts(expected, Arg.Any<CancellationToken>());
     }
 
     private sealed class RecordingAuditService : IAuditService

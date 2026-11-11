@@ -122,7 +122,8 @@ BEGIN
     SET @Name = LTRIM(RTRIM(@Name));
     IF LEN(@Name) < 2 RETURN;
 
-    /* Escape LIKE wildcards, otherwise '%%' passes the 2-character minimum and matches every client. */
+    /* Escape LIKE wildcards, otherwise '%%' passes the 2-character minimum and matches every client.
+       Characters the collation ignores, such as two byte-order marks, would do the same; the server refuses them. */
     DECLARE @Pattern NVARCHAR(300) = REPLACE(REPLACE(REPLACE(@Name, '[', '[[]'), '%', '[%]'), '_', '[_]');
 
     SELECT TOP (25)

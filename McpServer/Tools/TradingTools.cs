@@ -30,7 +30,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         {
             ToolArguments.Require(!string.IsNullOrWhiteSpace(text), "text must not be empty, for example 'MAR' or 'Pharma'.");
             ToolArguments.Require(text.Length <= 100, "text must be at most 100 characters.");
-            return repo.SearchInstruments(text, ct);
+            return repo.SearchInstruments(ToolArguments.RequirePlainText(text, nameof(text)), ct);
         });
 
     [McpServerTool(Name = "get_price_history", ReadOnly = true)]
@@ -45,6 +45,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         {
             ToolArguments.Require(!string.IsNullOrWhiteSpace(ticker), "ticker must not be empty. Use search_instruments to find one.");
             ToolArguments.Require(ticker.Length <= 10, "ticker must be at most 10 characters. Use search_instruments to find one.");
+            ToolArguments.Require(ticker.All(char.IsAsciiLetterOrDigit), "ticker may only contain letters and digits, for example 'BRIP'. Use search_instruments to find one.");
             var (fromDate, toDate) = ToolArguments.ParseDateRange(from, to);
             return repo.GetPriceHistory(ticker, fromDate, toDate, ct);
         });
@@ -73,7 +74,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
         {
             ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
             ToolArguments.Require(name!.Length <= 100, "name must be at most 100 characters.");
-            return repo.FindAccounts(name, ct);
+            return repo.FindAccounts(ToolArguments.RequirePlainText(name, nameof(name)), ct);
         });
 
     [McpServerTool(Name = "list_trades", ReadOnly = true)]
@@ -91,6 +92,7 @@ public sealed class TradingTools(ITradingRepository repo, IAuditService audit)
             var (fromDate, toDate) = ToolArguments.ParseDateRange(from, to);
             ToolArguments.Require(page is >= 1 and <= 1000, "page must be between 1 and 1000.");
             ToolArguments.Require(ticker is null || ticker.Length <= 10, "ticker must be at most 10 characters. Use search_instruments to find one.");
+            ToolArguments.Require(string.IsNullOrWhiteSpace(ticker) || ticker.All(char.IsAsciiLetterOrDigit), "ticker may only contain letters and digits, for example 'BRIP'. Use search_instruments to find one.");
             return repo.ListTrades(key, fromDate, toDate, string.IsNullOrWhiteSpace(ticker) ? null : ticker, page, ct);
         });
 

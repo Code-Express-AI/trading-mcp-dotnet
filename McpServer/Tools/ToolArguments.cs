@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace TradingMcp.Tools;
 
@@ -14,6 +15,21 @@ internal static class ToolArguments
             throw new ToolArgumentException(message);
         }
     }
+
+    // SQL Server's collation ignores some characters that .NET counts, such as the byte-order mark and the
+    // zero-width joiner, so two of them pass the 2-character minimum and match every client. Only plain Latin
+    // letters (up to U+017F; the collation ignores some letters above that), digits, spaces, ' - and . get
+    // through. The text is normalised first, so an accent sent as a separate combining character still passes.
+    public static string RequirePlainText(string value, string name)
+    {
+        var normalised = value.Any(char.IsSurrogate) ? value : value.Normalize(NormalizationForm.FormC);
+        Require(normalised.All(IsPlainTextCharacter),
+            $"{name} may only contain letters, digits, spaces, apostrophes ('), hyphens and full stops.");
+        return normalised;
+    }
+
+    private static bool IsPlainTextCharacter(char c) =>
+        (char.IsLetter(c) && c <= 'ſ') || char.IsAsciiDigit(c) || c is ' ' or '\'' or '-' or '.';
 
     // A string, not a Guid parameter, for the same reason as the dates below: a malformed key gets our message.
     public static Guid ParseAccountKey(string? accountKey)
