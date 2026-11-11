@@ -34,6 +34,10 @@ format don't match what the server expects.
 **App roles** (for service-to-service callers, which have no signed-in user)
 1. Create an app role: display name `Mcp.Read`, value `Mcp.Read`, allowed member types **Applications**, enabled.
 
+**Who can get a token.** Single tenant means anyone in your tenant, including B2B guests. Without this step, any of them can get a token with `mcp.read` and read every client.
+1. **Entra admin centre -> Enterprise applications -> Trading MCP Server -> Properties**: set **Assignment required** to **Yes** and save.
+2. **Users and groups -> Add user/group**: assign the people who need access. Assigning a group needs Entra ID P1 or P2. On the free tier, assign users one by one.
+
 ## 2. Register a client
 
 You need at least one client app that gets tokens for the API.
@@ -48,6 +52,8 @@ These commands work in PowerShell, macOS and Linux:
 az login --tenant <tenant-id>
 az account get-access-token --scope api://<api-client-id>/mcp.read --query accessToken -o tsv
 ```
+
+When testing is done, remove Azure CLI under **Expose an API -> Authorized client applications**. Otherwise every assigned user can get a token from the command line, with no consent prompt.
 
 **B. A service client (client credentials, no user)**
 1. New registration `Trading MCP Client (daemon)`.
@@ -159,6 +165,7 @@ with a client ID where DCR isn't available. What that means in practice:
 | 401, log says issuer invalid | Token is v1 (`iss` is `sts.windows.net`). Set `requestedAccessTokenVersion` to 2 in the manifest and fetch a new token. |
 | 401, log says audience invalid | The token was requested for a different resource. The scope must be `api://<api-client-id>/...`. |
 | 401, signature or key errors | Wrong `Entra:TenantId`, or the server can't reach `login.microsoftonline.com`. |
+| Getting a token fails with `AADSTS50105` | The user isn't assigned to Trading MCP Server. Assign them under **Enterprise applications -> Users and groups** (section 1). |
 | 403 with a valid token | Token has neither `scp` = `mcp.read` nor `roles` = `Mcp.Read`. For service clients, check admin consent was granted. |
 | Works in curl but not in a client | The client can't complete OAuth discovery or registration (see section 5). Supply the token directly instead. |
 
@@ -169,5 +176,4 @@ with a client ID where DCR isn't available. What that means in practice:
   server's audit table with Entra's sign-in logs for end-to-end traceability.
 - Keep scopes narrow. If you later add write tools, give them a separate scope (for example `mcp.write`) and a
   separate policy, so read-only callers can never reach them.
-- Consider restricting who can obtain tokens: **Enterprise applications -> Trading MCP Server -> Properties ->
-  Assignment required**, then assign only the users and groups that need access.
+- Keep **Assignment required** on (section 1), and review the assigned users and groups regularly.
