@@ -30,7 +30,7 @@ We'll show you how to:
   - Fixed, read-only tools with argument checks
   - Stored-procedure-only database access
   - Data masking
-  - A database audit log of every tool call, which can't be changed, even by `sa`
+  - A database audit log of every tool call, whose rows can't be changed or deleted, even by `sa`
 
 ## Try it for free
 
@@ -176,7 +176,7 @@ The detailed guides walk you through each step, explain why we built it that way
 
 ## Tests
 
-Unit tests need nothing installed. Integration tests run against the local Docker SQL Server and prove the security holds: the MCP login can't read or change the tables directly, and nobody, not even `sa`, can change the audit log. If SQL Server isn't running, they're skipped with the reason. GitHub Actions runs every test on every push, and there a missing database fails the build instead.
+Unit tests need nothing installed. Integration tests run against the local Docker SQL Server and prove the security holds: the MCP login can't read or change the tables directly, and nobody, not even `sa`, can change or delete a row of the audit log. If SQL Server isn't running, they're skipped with the reason. GitHub Actions runs every test on every push, and there a missing database fails the build instead.
 
 ```sh
 dotnet test XTests/XTests.csproj                                     # all tests
@@ -195,7 +195,7 @@ Each layer grants only what's needed, and holds even if the one above it fails.
 | What they can ask | Eight fixed, read-only tools, with every argument checked |
 | What the database allows | `EXECUTE` on the stored procedures and nothing else: `DENY` on every table, fixed columns, row limits, no dynamic SQL |
 | What leaks | Account numbers and emails are masked, and unexpected database errors never reach the model, only a generic message |
-| What's recorded | Every call, in an append-only ledger table that even `sa` can't change, and that SQL Server can verify hasn't been tampered with |
+| What's recorded | Every call, in an append-only ledger table whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest |
 
 Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
 

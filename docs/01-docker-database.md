@@ -109,7 +109,7 @@ ALTER TABLE trading.Account
 
 **No internal IDs leave the database.** Every table has a fast integer primary key for joins, and a random GUID key next to it (`AccountKey`, `ClientKey` and so on). The procedures only return the GUID, and only when another tool needs it: `find_accounts` returns an `AccountKey` because `get_positions` takes one. Sequential numbers would tell anyone with a stolen token how many accounts we have, and let them walk through every one from 1 upwards. A random key gives nothing away. The integration tests fail if a procedure ever returns a column ending in `Id`.
 
-**A tamper-proof audit log.** The MCP server records every tool call in `trading.AuditLog`. It's an append-only ledger table: rows can be added but never changed or deleted, not even by `sa`. SQL Server also keeps a hash chain through every row, so tampering with the data files is detected.
+**A tamper-evident audit log.** The MCP server records every tool call in `trading.AuditLog`. It's an append-only ledger table: rows can be added but never changed or deleted, not even by `sa`. SQL Server also keeps a hash chain through every row, and checking it against a saved digest shows whether anything was changed behind its back, such as the data files. What it can't stop is `sa` dropping the whole database and rebuilding it with a doctored history. Only a digest stored somewhere `sa` can't reach detects that, so in Azure we turn on automatic digest storage ([guide 4](04-azure-deployment.md#3-configure-entra-id-and-test), step 4).
 
 **Contained users.** `mcp_reader` exists only inside the database, with its own password. That's how Azure SQL Database works, so the same scripts run locally and in Azure.
 

@@ -3,7 +3,8 @@ using Microsoft.Data.SqlClient;
 
 namespace XTests.Integration;
 
-// The audit log is an append-only ledger table: even sa, the most powerful login, can't rewrite history.
+// The audit log is an append-only ledger table: even sa, the most powerful login, can't change or delete a row.
+// sa can still drop the whole database; only a digest saved somewhere sa can't reach detects that.
 [Trait("Category", "Integration")]
 public class When_The_Audit_Log_Is_Tampered_With
 {

@@ -86,8 +86,9 @@ CREATE INDEX IX_Trade_Instrument_Time ON trading.Trade(InstrumentId, TradeTimest
 
 /* Written by the MCP server, one row per tool call.
    An append-only ledger table: rows can be added but never updated or deleted, not even by sa.
-   SQL Server also chains a hash through every row, so tampering with the data files is detected
-   by sys.sp_verify_database_ledger. */
+   SQL Server also chains a hash through every row, and sys.sp_verify_database_ledger checks it against a
+   saved digest. That only detects tampering if the digest is stored where sa can't reach it: sa can still
+   drop the database and rebuild it. In Azure, turn on automatic digest storage (docs/04-azure-deployment.md). */
 
 CREATE TABLE trading.AuditLog (
     AuditId        BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AuditLog PRIMARY KEY,
