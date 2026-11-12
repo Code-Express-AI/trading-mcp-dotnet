@@ -27,4 +27,18 @@ public static class CallerIdentity
 
         return oid is null ? name : $"{name} [oid:{oid}]";
     }
+
+    /// <summary>
+    /// The key row-level security matches against trading.CallerClient. It has to stay the same for the same caller:
+    ///   static tokens -> the token's name, e.g. "copilot"
+    ///   Entra         -> the object ID (oid) of the user or app. An email address can change; the oid never does.
+    /// Null without an authenticated identity, so the caller sees no clients.
+    /// </summary>
+    public static string? GetCallerKey(this ClaimsPrincipal? user)
+    {
+        if (user is null || user.Identity?.IsAuthenticated != true)
+            return null;
+
+        return user.FindFirst("oid")?.Value ?? user.Identity?.Name;
+    }
 }

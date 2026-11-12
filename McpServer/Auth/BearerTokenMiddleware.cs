@@ -8,8 +8,8 @@ internal sealed record BearerToken(string Name, byte[] Hash);
 
 /// <summary>
 /// Minimal bearer-token authentication. Each client gets its own named token
-/// (Mcp:Tokens:claude-desktop, Mcp:Tokens:inspector, ...), so the audit log shows WHICH client
-/// made each call and one token can be revoked without touching the others.
+/// (Mcp:Tokens:local, Mcp:Tokens:copilot, ...), so the audit log shows WHICH client made each call and one token
+/// can be revoked without touching the others. The name is also the caller's key for row-level security.
 ///
 /// This is the simple version, used while building the server. For production, validate JWTs from Microsoft Entra ID
 /// with AddJwtBearer instead - you get expiry, rotation and per-user identity.
@@ -19,7 +19,7 @@ internal sealed class BearerTokenMiddleware(RequestDelegate next, BearerToken[] 
     private const int MinTokenLength = 32;
 
     private const string SetTokenHint =
-        "From the repository root, run: dotnet user-secrets set \"Mcp:Tokens:inspector\" \"<random token of 32+ characters>\" --project McpServer";
+        "From the repository root, run: dotnet user-secrets set \"Mcp:Tokens:local\" \"<random token of 32+ characters>\" --project McpServer";
 
     // Called while the app is built, so a missing or weak token stops the server before it starts.
     // Only hashes are kept in memory; comparison is on equal-length digests.

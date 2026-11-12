@@ -19,6 +19,8 @@ internal static class SyntheticData
         var accounts = AccountGenerator.Generate(random, clients, instruments, tradingDays[0], tradingDays[^1]);
         var trades = TradeGenerator.Generate(random, accounts, instruments, prices, tradingDays, options.TradesPerAccount);
 
-        return new GeneratedData(instruments, prices, clients, accounts, trades);
+        var callerClients = CallerClientGenerator.Generate(clients);
+
+        return new GeneratedData(instruments, prices, clients, accounts, trades, callerClients);
     }
 }

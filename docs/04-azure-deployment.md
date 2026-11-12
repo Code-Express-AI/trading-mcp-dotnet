@@ -48,6 +48,22 @@ Treat the connection string as a secret. For anything beyond a short-lived demo,
 
 Follow [Entra ID authentication for the MCP server](entra-setup.md) to register the API, expose the `mcp.read` scope, set up a client and get a token. The server only validates Entra tokens; it never issues them.
 
+Then give each Entra user or app the clients it may see. Row-level security keys an Entra caller on its object ID, and a caller with no rows in `trading.CallerClient` sees no clients at all. Get the object ID:
+
+```sh
+az ad signed-in-user show --query id -o tsv
+az ad sp show --id <daemon-client-id> --query id -o tsv
+```
+
+The first command gives your own user's object ID, the second the service client's from [section 2B of the Entra guide](entra-setup.md#2-register-a-client). Connect as the administrator and add the rows. This gives the caller every client; pick a subset to restrict it:
+
+```sql
+INSERT INTO trading.CallerClient (CallerKey, ClientId)
+SELECT N'<object-id>', ClientId FROM trading.Client;
+```
+
+Loading the data again with `--reset` deletes these rows, so add them again afterwards. The `local`, `copilot`, `claude` and `inspector` rows from the data generator are for static tokens and do nothing in Entra mode.
+
 Then check the deployment:
 
 1. Open `https://<app-name>.azurewebsites.net/health`. It should return `{"status":"ok"}`.
@@ -64,7 +80,7 @@ Not every interactive MCP client can complete Entra's sign-in flow, so test your
 
 This project is a demo. Before putting an MCP server like this in front of a real database, work through this list:
 
-- **Limit which rows each caller can see.** Every authenticated caller can currently read every client. Use SQL Server row-level security, with the server setting the caller's identity in `SESSION_CONTEXT`, so each user only sees their own clients.
+- **Map real users to their clients.** Row-level security is in place, but the demo's mapping is fixed by the data generator. In production, keep `trading.CallerClient` in step with your source of truth, such as the CRM's client assignments. The database trusts the server to set the caller, so anyone with the `mcp_reader` password can claim to be anyone. To have the database check the user's identity itself, connect as the user with the Entra on-behalf-of flow.
 - **Decide what data may reach the model.** Tool results go to whichever model the host uses. With a cloud model, client names and holdings leave your boundary. Mask or pseudonymise personal data, leave it out of tool results, or use a local model.
 - **Remove the database password.** Connect to Azure SQL with a managed identity, and keep any remaining secrets in Key Vault.
 - **Use a read-only replica.** Point the server at a readable secondary (`ApplicationIntent=ReadOnly`), so model traffic can't slow down the system the business runs on.

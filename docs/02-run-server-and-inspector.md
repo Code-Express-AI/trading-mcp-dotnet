@@ -99,7 +99,7 @@ You can also query it from the VS Code SQL Server extension, as in [guide 1](01-
 
 Reading `.env` is a convenience for the local walkthrough, and it only happens in Development. The standard way to give a .NET app its secrets during development is [user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets): they're stored in your user profile, outside the repository. Anything set there takes priority over `.env`.
 
-Use user-secrets to point the server at a different database, or to give each client its own token, so the audit log shows which client made each call. First generate a token.
+Use user-secrets to point the server at a different database, or to give each client its own token, so the audit log shows which client made each call. The token's name also decides which clients it can see, through [row-level security](01-docker-database.md#how-the-database-is-locked-down): `local` sees every client, `copilot`, `claude` and `inspector` each see their own quarter plus a quarter they share, and any other name sees none. First generate a token.
 
 Windows (PowerShell):
 
@@ -116,12 +116,31 @@ openssl rand -hex 32
 Then set it, and optionally a connection string:
 
 ```sh
-dotnet user-secrets set "Mcp:Tokens:inspector" "<token>" --project McpServer
+dotnet user-secrets set "Mcp:Tokens:local" "<token>" --project McpServer
 dotnet user-secrets set "ConnectionStrings:Trading" "Server=localhost,1433;Database=TradingDemo;User ID=mcp_reader;Password=<MCP_READER_PASSWORD>;Encrypt=True;TrustServerCertificate=True;Connect Timeout=5" --project McpServer
 dotnet user-secrets list --project McpServer
 ```
 
 Once any token is set in user-secrets, `MCP_TOKEN` in `.env` is no longer accepted. To go back to `.env`, run `dotnet user-secrets clear --project McpServer`. In production, the same settings come from App Service configuration instead: see [guide 4](04-azure-deployment.md).
+
+### Try row-level security
+
+Give two tokens different names, and the same question gets different answers. Generate two more tokens as above, then set them and restart the server:
+
+```sh
+dotnet user-secrets set "Mcp:Tokens:copilot" "<copilot-token>" --project McpServer
+dotnet user-secrets set "Mcp:Tokens:claude" "<claude-token>" --project McpServer
+dotnet run --project McpServer
+```
+
+Then ask for the Berniers with each token:
+
+```sh
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <copilot-token>" --method tools/call --tool-name find_accounts --tool-arg name=Bernier
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <claude-token>" --method tools/call --tool-name find_accounts --tool-arg name=Bernier
+```
+
+Each token gets a different Bernier, and the `local` token gets both. With the default data, `copilot` sees Einar Bernier and `claude` sees Milan Bernier. The Thompsons are shared, so every token sees both of them. Try `get_positions` with the other token's `accountKey`: it gets "Unknown accountKey", the same as for a key that doesn't exist.
 
 ## Troubleshooting
 

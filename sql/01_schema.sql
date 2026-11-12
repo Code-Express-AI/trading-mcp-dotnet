@@ -66,6 +66,15 @@ CREATE TABLE trading.Account (
 );
 CREATE INDEX IX_Account_ClientId ON trading.Account(ClientId);
 
+/* Which clients each caller may see. Row-level security in 02_security.sql filters Client, Account and Trade
+   with it. CallerKey is a static token's name, or the Entra object ID (oid) of a user or app.
+   A caller with no rows sees no clients. */
+CREATE TABLE trading.CallerClient (
+    CallerKey  NVARCHAR(128) NOT NULL,
+    ClientId   INT           NOT NULL CONSTRAINT FK_CallerClient_Client REFERENCES trading.Client(ClientId),
+    CONSTRAINT PK_CallerClient PRIMARY KEY (CallerKey, ClientId)
+);
+
 CREATE TABLE trading.Trade (
     TradeId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Trade PRIMARY KEY,
     TradeKey        UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_Trade_Key DEFAULT (NEWID()) CONSTRAINT UQ_Trade_Key UNIQUE,

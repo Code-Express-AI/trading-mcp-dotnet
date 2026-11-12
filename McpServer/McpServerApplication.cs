@@ -27,9 +27,7 @@ internal static class McpServerApplication
         builder.Services.AddSingleton<ITradingRepository>(services =>
         {
             var http = services.GetRequiredService<IHttpContextAccessor>();
-            return new TradingRepository(
-                services.GetRequiredService<Func<SqlConnection>>(),
-                () => http.HttpContext?.User.GetCallerId() ?? "anonymous");
+            return new TradingRepository(services.GetRequiredService<Func<SqlConnection>>(), () => http.HttpContext?.User);
         });
         builder.Services.AddSingleton<IAuditService, AuditService>();
         if (useEntra)

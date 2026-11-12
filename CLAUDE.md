@@ -30,7 +30,7 @@ dotnet run --project McpServer                                       # run the s
 
 ## How a tool call works
 
-Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradingRepository` → one stored procedure in the `mcp` schema. Every connection the repository opens sets the caller, read-only, so SQL can read it with `SESSION_CONTEXT(N'caller')`.
+Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradingRepository` → one stored procedure in the `mcp` schema. Every connection the repository opens sets the caller, read-only, in the session context: `caller` (the readable name) and `caller_key` (the token name, or the Entra `oid`), which row-level security uses.
 
 To add a tool:
 
@@ -53,6 +53,7 @@ To add a tool:
 
 - The `mcp_reader` database user has `DENY` on the `trading` tables (`02_security.sql`) and `EXECUTE` on each `mcp` procedure, granted one by one at the end of `03_procedures.sql`, nothing else. Never grant on the whole schema: a procedure added to `mcp` by mistake would become callable.
 - Never add dynamic SQL, raw-query tools, or write operations on business tables.
+- Row-level security (`02_security.sql`) filters `Client`, `Account` and `Trade` by `trading.CallerClient`. A new table holding client data gets a filter predicate in the same policy. Only `db_owner` is exempt; never exempt `mcp_reader`. A procedure that takes an `accountKey` looks it up in `Account`, so a hidden account gets the same "Unknown accountKey" as a missing one.
 - Integer IDs never leave the database. Every table with an `IDENTITY` key also has a random GUID `<Name>Key` (`DEFAULT NEWID()`, not `NEWSEQUENTIALID()`). Procedures take and return the key, and return it only when another tool needs it as input. An integration test fails if a procedure returns a column ending in `Id`.
 - `OriginCheckMiddleware` runs before authentication and refuses any `Origin` header not in `Mcp:AllowedOrigins` (empty by default), as the MCP specification requires. If a host sends an `Origin`, add that exact origin to the list. Never use wildcards or skip the check.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.

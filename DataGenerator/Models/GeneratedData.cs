@@ -5,4 +5,5 @@ internal sealed record GeneratedData(
     IReadOnlyList<InstrumentPrice> InstrumentPrices,
     IReadOnlyList<Client> Clients,
     IReadOnlyList<Account> Accounts,
-    IReadOnlyList<Trade> Trades);
+    IReadOnlyList<Trade> Trades,
+    IReadOnlyList<CallerClient> CallerClients);

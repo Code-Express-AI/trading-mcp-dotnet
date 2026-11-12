@@ -53,6 +53,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Trade");
         await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.InstrumentPrice");
         await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Account");
+        await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.CallerClient");
         await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Client");
         await ExecuteNonQueryAsync(connection, transaction, "DELETE FROM trading.Instrument");
 
@@ -70,6 +71,7 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         await BulkInsertAsync(connection, transaction, "trading.Client", CreateClientTable(data.Clients), keepIdentity: true);
         await BulkInsertAsync(connection, transaction, "trading.Account", CreateAccountTable(data.Accounts), keepIdentity: true);
         await BulkInsertAsync(connection, transaction, "trading.Trade", CreateTradeTable(data.Trades), keepIdentity: false);
+        await BulkInsertAsync(connection, transaction, "trading.CallerClient", CreateCallerClientTable(data.CallerClients), keepIdentity: false);
     }
 
     private static DataTable CreateInstrumentTable(IEnumerable<Instrument> instruments)
@@ -133,6 +135,17 @@ internal sealed class DatabaseSeeder(string connectionString) : IDatabaseSeeder
         {
             table.Rows.Add(trade.AccountId, trade.InstrumentId, trade.Side, trade.Quantity,
                            trade.Price, trade.Fees, trade.Timestamp, trade.Status);
+        }
+
+        return table;
+    }
+
+    private static DataTable CreateCallerClientTable(IEnumerable<CallerClient> callerClients)
+    {
+        var table = CreateTable(("CallerKey", typeof(string)), ("ClientId", typeof(int)));
+        foreach (var callerClient in callerClients)
+        {
+            table.Rows.Add(callerClient.CallerKey, callerClient.ClientId);
         }
 
         return table;

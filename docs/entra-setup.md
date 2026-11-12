@@ -124,7 +124,7 @@ curl -i -X POST http://localhost:5080/mcp
 curl -s http://localhost:5080/.well-known/oauth-protected-resource
 ```
 
-With a valid token, the MCP endpoint answers. For example, with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector):
+With a valid token, the MCP endpoint answers. The token's object ID needs rows in `trading.CallerClient` first, as described in [guide 4](04-azure-deployment.md#3-configure-entra-id-and-test), otherwise the tools find no clients. For example, with [MCP Inspector](02-run-server-and-inspector.md#2-test-it-with-mcp-inspector):
 
 ```sh
 npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info
@@ -166,6 +166,7 @@ with a client ID where DCR isn't available. What that means in practice:
 | 401, log says audience invalid | The token was requested for a different resource. The scope must be `api://<api-client-id>/...`. |
 | 401, signature or key errors | Wrong `Entra:TenantId`, or the server can't reach `login.microsoftonline.com`. |
 | Getting a token fails with `AADSTS50105` | The user isn't assigned to Trading MCP Server. Assign them under **Enterprise applications -> Users and groups** (section 1). |
+| Tools work, but find no accounts, or report "Unknown accountKey" | The token's object ID (`oid`) has no rows in `trading.CallerClient`. Add them as in [guide 4](04-azure-deployment.md#3-configure-entra-id-and-test). |
 | 403 with a valid token | Token has neither `scp` = `mcp.read` nor `roles` = `Mcp.Read`. For service clients, check admin consent was granted. |
 | Works in curl but not in a client | The client can't complete OAuth discovery or registration (see section 5). Supply the token directly instead. |
 

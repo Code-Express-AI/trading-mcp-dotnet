@@ -8,7 +8,7 @@ namespace XTests.Integration;
 [Trait("Category", "Integration")]
 public class When_Trading_Repository_Is_Queried
 {
-    private readonly TradingRepository _repository = new(() => new SqlConnection(IntegrationDatabase.ReaderConnectionString), () => "integration-test");
+    private readonly TradingRepository _repository = IntegrationDatabase.RepositoryFor("local");
 
     // Fixtures are looked up as sa, so the tests work with whatever data the generator produced.
     private static Task<string> AnyTickerAsync() =>

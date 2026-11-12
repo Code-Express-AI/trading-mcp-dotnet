@@ -58,13 +58,13 @@ docker compose run --rm db-init
 | Script | Creates |
 |---|---|
 | `00_create_database.sql` | The empty `TradingDemo` database |
-| `01_schema.sql` | The tables and views, including masked columns and the ledger audit table |
-| `02_security.sql` | The `mcp_reader` user, denied access to every table |
+| `01_schema.sql` | The tables and views, including masked columns, the ledger audit table and which clients each caller may see |
+| `02_security.sql` | The `mcp_reader` user, denied access to every table, and row-level security |
 | `03_procedures.sql` | The stored procedures, and permission for `mcp_reader` to run them |
 
 You should see each script run, then `Done. Database 'TradingDemo' is ready…`.
 
-If the database already exists, `db-init` leaves it alone. To delete it and start again, run `docker compose run --rm -e RECREATE=1 db-init`.
+If the database already exists, `db-init` leaves it alone. To delete it and start again, run `docker compose run --rm -e RECREATE=1 db-init`, then load the data again with `--reset` (step 4). Do this if your database was created before row-level security was added: without the `trading.CallerClient` table, `--reset` fails.
 
 ## 4. Load the data
 
@@ -97,6 +97,8 @@ The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing.
 **Stored procedures are the only way in.** `03_procedures.sql` grants `mcp_reader` one thing: `EXECUTE` on each stored procedure, one by one. We don't grant on the whole `mcp` schema, because then a procedure added there by mistake would be callable straight away. Each procedure returns fixed columns and a limited number of rows, and none of them builds SQL from text. So the procedures are a hard limit on what anyone can ask for.
 
 **Ownership chaining makes it work.** The procedures can read tables that `mcp_reader` can't, because the procedures and the tables have the same owner. SQL Server then skips the permission check on the tables. Dynamic SQL (`EXEC(@sql)`) would break that chain, which is one more reason the procedures don't use it.
+
+**Row-level security.** Each caller sees only its own clients, and their accounts and trades. `trading.CallerClient` lists which clients each caller may see, and a security policy in `02_security.sql` filters the `Client`, `Account` and `Trade` tables with it, for every query. The MCP server tells the database who's calling by setting `caller_key` in the session context of every connection, read-only. Because the filter is on the tables, the stored procedures don't need to remember it, and an account the caller can't see gets the same "Unknown accountKey" error as one that doesn't exist. The data generator gives the `local` token (from `.env`) every client. It gives the `copilot`, `claude` and `inspector` tokens a quarter each, plus a final quarter that all three share. Every Thompson is in the shared quarter, so the examples in these guides work with any token. A caller with no rows sees nothing. Admins (`db_owner`, including `sa`) see everything, so the data can still be loaded.
 
 **Masking.** Account numbers and email addresses are masked in the table definitions. `mcp_reader` doesn't have the `UNMASK` permission, so it only ever sees values like `ACCXXXXX149`. That holds even through the stored procedures, because ownership chaining skips the table permission checks but not masking: SQL Server checks whether the caller has `UNMASK`, not the procedure's owner.
 
@@ -137,11 +139,15 @@ DELETE FROM trading.AuditLog;                         -- refused: append-only le
 
 ```sql
 SELECT TOP 5 FullName, Email FROM trading.Client;     -- refused: no permission on the table
+EXEC mcp.FindAccounts @Name = N'Thompson';            -- returns nothing: no caller is set, so no clients
+EXEC sp_set_session_context N'caller_key', N'local';  -- act as the local token, as the MCP server does
 EXEC mcp.FindAccounts @Name = N'Thompson';            -- works, but account numbers are masked
 EXEC mcp.GetTopMovers @Count = 100;                   -- returns at most 20 rows
 EXEC mcp.GetPriceHistory @Ticker = N'NOPE';           -- refused: "Unknown ticker..."
 DELETE FROM trading.Trade;                            -- refused: no permission on the table
 ```
+
+`mcp_reader` can set any caller it likes, so anyone with its password can choose whose clients to see. The MCP server sets the caller from the token, read-only, so a model can't change it. Keep the `mcp_reader` password as secret as the tokens.
 
 These rules are also checked automatically by the integration tests in `XTests/Integration`.
 

@@ -72,7 +72,7 @@ public class When_Bearer_Token_Middleware_Is_Run
         var exception = Assert.Throws<ServerConfigurationException>(() => BearerTokenMiddleware.LoadTokens(CreateConfiguration()));
 
         Assert.StartsWith("No bearer tokens are set.", exception.Message);
-        Assert.Contains("dotnet user-secrets set \"Mcp:Tokens:inspector\"", exception.Message);
+        Assert.Contains("dotnet user-secrets set \"Mcp:Tokens:local\"", exception.Message);
     }
 
     [Theory]

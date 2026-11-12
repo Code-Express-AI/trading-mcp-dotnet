@@ -29,6 +29,7 @@ We'll show you how to:
   - Rate limits
   - Fixed, read-only tools with argument checks
   - Stored-procedure-only database access
+  - Row-level security, so each caller sees only its own clients
   - Data masking
   - A database audit log of every tool call, whose rows can't be changed or deleted, even by `sa`
 
@@ -117,7 +118,7 @@ flowchart LR
     U([You]) --> H["Host<br/>(VS Code + Copilot)"]
     H <-. "prompts and<br/>tool choices" .-> L["LLM<br/>(cloud or local)"]
     H -- "MCP over HTTP<br/>+ bearer token" --> S["MCP server<br/>(.NET minimal API)<br/>auth, audit, rate limit"]
-    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · masking<br/>ledger audit log")]
+    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit log")]
 ```
 
 Many MCP database examples give the model a tool that runs any SQL it writes. We don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
@@ -194,6 +195,7 @@ Each layer grants only what's needed, and holds even if the one above it fails.
 | How often | A rate limit for each caller |
 | What they can ask | Eight fixed, read-only tools, with every argument checked |
 | What the database allows | `EXECUTE` on the stored procedures and nothing else: `DENY` on every table, fixed columns, row limits, no dynamic SQL |
+| Which rows | Row-level security: each caller sees only the clients it's mapped to, and their accounts and trades |
 | What leaks | Account numbers and emails are masked, and unexpected database errors never reach the model, only a generic message |
 | What's recorded | Every call, in an append-only ledger table whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest |
 
@@ -215,10 +217,11 @@ The MCP SDK and its authorization support are changing quickly. If something doe
 
 - [TradingTools.cs](McpServer/Tools/TradingTools.cs): the eight tools, their descriptions and argument checks
 - [03_procedures.sql](sql/03_procedures.sql): the stored procedures, the security boundary
-- [02_security.sql](sql/02_security.sql): the read-only database user, with `DENY` on every table
+- [02_security.sql](sql/02_security.sql): the read-only database user, with `DENY` on every table, and row-level security
 - [AuditService.cs](McpServer/Audit/AuditService.cs): auditing, and errors written for the model
 - [McpServerApplication.cs](McpServer/McpServerApplication.cs): the whole server, set up on one page
 - [When_The_Mcp_Reader_Bypasses_The_Procedures.cs](XTests/Integration/When_The_Mcp_Reader_Bypasses_The_Procedures.cs) and [When_The_Audit_Log_Is_Tampered_With.cs](XTests/Integration/When_The_Audit_Log_Is_Tampered_With.cs): the tests that prove the database refuses
+- [When_Rows_Are_Filtered_By_Caller.cs](XTests/Integration/When_Rows_Are_Filtered_By_Caller.cs): the tests that prove each caller sees only its own clients
 
 ## Licence
 

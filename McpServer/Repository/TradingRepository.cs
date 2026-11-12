@@ -1,6 +1,8 @@
 using System.Data;
+using System.Security.Claims;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using TradingMcp.Auth;
 using TradingMcp.Model;
 using TradingMcp.Tools;
 
@@ -10,7 +12,7 @@ namespace TradingMcp.Repository;
 /// The server's entire view of the database. Every method is a single stored-procedure call
 /// (schema "mcp"), and the SQL login behind it has EXECUTE on those procedures and nothing else.
 /// </summary>
-public sealed class TradingRepository(Func<SqlConnection> connect, Func<string> caller) : ITradingRepository
+public sealed class TradingRepository(Func<SqlConnection> connect, Func<ClaimsPrincipal?> user) : ITradingRepository
 {
     private const int QueryTimeoutSeconds = 15;
 
@@ -18,19 +20,25 @@ public sealed class TradingRepository(Func<SqlConnection> connect, Func<string> 
     // with THROW and an error number of 50000 or more. Those messages are written for the model.
     private const int FirstUserDefinedErrorNumber = 50000;
 
-    // Every session carries the caller, so the database can read who's asking with SESSION_CONTEXT(N'caller').
-    // read_only: nothing later in the session can change it. A pooled connection is reset before it's reused,
-    // which clears it for the next caller.
+    // Every session carries who's asking: 'caller' is the readable name the audit log uses, and 'caller_key' is the
+    // stable key that row-level security (02_security.sql) matches against trading.CallerClient.
+    // read_only: nothing later in the session can change them. A pooled connection is reset before it's reused,
+    // which clears them for the next caller.
+    private const string SetCallerSql = """
+        EXEC sys.sp_set_session_context @key = N'caller',     @value = @Caller,    @read_only = 1;
+        EXEC sys.sp_set_session_context @key = N'caller_key', @value = @CallerKey, @read_only = 1;
+        """;
+
     internal async Task<SqlConnection> OpenAsync(CancellationToken ct)
     {
+        var caller = user();
         var conn = connect();
         try
         {
             await conn.OpenAsync(ct);
             await conn.ExecuteAsync(new CommandDefinition(
-                "sys.sp_set_session_context",
-                new { key = "caller", value = caller(), read_only = true },
-                commandType: CommandType.StoredProcedure,
+                SetCallerSql,
+                new { Caller = caller.GetCallerId(), CallerKey = caller.GetCallerKey() },
                 cancellationToken: ct));
             return conn;
         }

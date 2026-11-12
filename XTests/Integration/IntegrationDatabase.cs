@@ -1,6 +1,8 @@
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using TradingMcp.Repository;
 
 namespace XTests.Integration;
 
@@ -20,7 +22,22 @@ internal static class IntegrationDatabase
     public static string AdminConnectionString(string? database = null) =>
         Build("sa", EnvValues.Value!["SA_PASSWORD"], database ?? DatabaseName);
 
-    public static string ReaderConnectionString => Build("mcp_reader", EnvValues.Value!["MCP_READER_PASSWORD"], DatabaseName);
+    public static string ReaderConnectionString => ReaderConnectionStringFor(DatabaseName);
+
+    // The repository as the server builds it for a static token with this name: "local" is the token from .env,
+    // which sees every client. Pass null for a caller with no identity.
+    public static TradingRepository RepositoryFor(string? tokenName, string? connectionString = null)
+    {
+        var user = tokenName is null
+            ? null
+            : new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, tokenName)], authenticationType: "Bearer"));
+        var connection = connectionString ?? ReaderConnectionString;
+        return new TradingRepository(() => new SqlConnection(connection), () => user);
+    }
+
+    public static string ReaderConnectionStringFor(string database) => Build("mcp_reader", ReaderPassword, database);
+
+    public static string ReaderPassword => EnvValues.Value!["MCP_READER_PASSWORD"];
 
     public static string Build(string user, string password, string database, bool trustServerCertificate = true) =>
         new SqlConnectionStringBuilder
@@ -51,9 +68,10 @@ internal static class IntegrationDatabase
     }
 
     // Runs a script from the sql folder. "GO" is a tool convention, not T-SQL, so the script is split on it.
-    public static async Task RunScriptAsync(string scriptName, string connectionString)
+    public static async Task RunScriptAsync(string scriptName, string connectionString, Func<string, string>? edit = null)
     {
         var script = await File.ReadAllTextAsync(Path.Combine(RepositoryRoot.Value, "sql", scriptName));
+        script = edit?.Invoke(script) ?? script;
         foreach (var batch in Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase))
         {
             if (!string.IsNullOrWhiteSpace(batch))
