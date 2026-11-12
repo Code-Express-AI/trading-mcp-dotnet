@@ -58,7 +58,7 @@ docker compose run --rm db-init
 | Script | Creates |
 |---|---|
 | `00_create_database.sql` | The empty `TradingDemo` database |
-| `01_schema.sql` | The tables and views, including masked columns, the ledger audit tables and which clients each caller may see |
+| `01_schema.sql` | The tables and views, including masked columns, the ledger audit table and which clients each caller may see |
 | `02_security.sql` | The `mcp_reader` user, denied access to every table, and row-level security |
 | `03_procedures.sql` | The stored procedures, and permission for `mcp_reader` to run them |
 
@@ -113,7 +113,7 @@ ALTER TABLE trading.Account
 
 **A tamper-evident audit log.** The MCP server records every tool call in `trading.AuditLog`. It's an append-only ledger table: rows can be added but never changed or deleted, not even by `sa`. SQL Server also keeps a hash chain through every row, and checking it against a saved digest shows whether anything was changed behind its back, such as the data files. What it can't stop is `sa` dropping the whole database and rebuilding it with a doctored history. Only a digest stored somewhere `sa` can't reach detects that, so in Azure we turn on automatic digest storage ([guide 4](04-azure-deployment.md#3-configure-entra-id-and-test), step 4).
 
-**A second audit log, written by the database.** `trading.AuditLog` only holds what the server writes, so someone with the `mcp_reader` password and their own code could skip it. So each read procedure also writes its own row to `trading.ProcedureCallLog`, another append-only ledger table, before it returns any data. It records the database user, the caller the server set and the arguments. The procedures refuse to run inside a transaction, because a `ROLLBACK` after the rows came back would remove the record. The server's log still holds what this one can't: how many rows came back, how long the call took, and calls the server refused before they reached the database.
+**The database writes to the audit log too.** If only the server wrote audit rows, someone with the `mcp_reader` password and their own code could skip them. So each read procedure also writes its own row to `trading.AuditLog` before it returns any data, with `Source` set to `procedure`. It records the database user, the caller the server set and the arguments. The procedures refuse to run inside a transaction, because a `ROLLBACK` after the rows came back would remove the row. The server's rows, with `Source` set to `server`, still hold what a procedure's row can't: how many rows came back, how long the call took, whether it succeeded, and calls the server refused before they reached the database. `mcp_reader` can add the server's rows but never a procedure's, so a procedure's row can't be faked.
 
 **Contained users.** `mcp_reader` exists only inside the database, with its own password. That's how Azure SQL Database works, so the same scripts run locally and in Azure.
 
@@ -149,10 +149,10 @@ EXEC mcp.GetPriceHistory @Ticker = N'NOPE';           -- refused: "Unknown ticke
 DELETE FROM trading.Trade;                            -- refused: no permission on the table
 ```
 
-Each of those procedure calls left a row in `trading.ProcedureCallLog`, with `DatabaseUser` set to `mcp_reader`, even though the MCP server wasn't involved. As `sa`, look at the latest ones:
+Each of those procedure calls left a row in the audit log, with `Source` set to `procedure` and `DatabaseUser` set to `mcp_reader`, even though the MCP server wasn't involved. As `sa`, look at the latest ones:
 
 ```sql
-SELECT TOP 5 OccurredAtUtc, DatabaseUser, CallerKey, ProcedureName, Arguments FROM trading.ProcedureCallLog ORDER BY CallId DESC;
+SELECT TOP 5 OccurredAtUtc, Source, DatabaseUser, CallerKey, ToolName, Parameters FROM trading.AuditLog ORDER BY AuditId DESC;
 ```
 
 `mcp_reader` can set any caller it likes, so anyone with its password can choose whose clients to see. The MCP server sets the caller from the token, read-only, so a model can't change it. Keep the `mcp_reader` password as secret as the tokens.
@@ -204,7 +204,7 @@ docker image rm mcr.microsoft.com/mssql/server:2022-latest
 
 ## Use an existing SQL Server instead
 
-You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead of Docker. Earlier versions won't work, because the audit tables are ledger tables.
+You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead of Docker. Earlier versions won't work, because the audit table is a ledger table.
 
 1. For SQL Server, run `sql/00_create_database.sql` as an administrator connected to `master`. For Azure SQL Database, create an empty database in Azure and skip this script.
 2. Connect to `TradingDemo` and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`, and keep it for the MCP server's connection string.

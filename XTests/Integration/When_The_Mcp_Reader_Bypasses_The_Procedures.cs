@@ -30,10 +30,10 @@ public class When_The_Mcp_Reader_Bypasses_The_Procedures
         Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.AuditLog")).Number);
     }
 
+    // Otherwise mcp_reader could forge a procedure's audit row.
     [IntegrationFact]
-    public async Task it_should_refuse_to_read_or_write_the_procedure_call_log()
+    public async Task it_should_refuse_to_record_a_procedure_call_directly()
     {
-        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.ProcedureCallLog")).Number);
         Assert.Equal(PermissionDenied, (await RunAsReaderAsync("EXEC trading.RecordProcedureCall N'mcp.Made.Up', NULL")).Number);
     }
 

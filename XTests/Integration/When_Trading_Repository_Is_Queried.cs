@@ -96,10 +96,14 @@ public class When_Trading_Repository_Is_Queried
         Assert.Equal("", idColumns);
     }
 
+    // WriteAudit always writes Source 'server', so mcp_reader can't forge a procedure's row through it.
     [IntegrationFact]
-    public async Task it_should_write_an_audit_row()
+    public async Task it_should_write_a_server_audit_row()
     {
-        const string countSql = "SELECT COUNT(*) FROM trading.AuditLog WHERE Caller = 'integration-test'";
+        const string countSql = """
+            SELECT COUNT(*) FROM trading.AuditLog
+            WHERE Caller = 'integration-test' AND Source = N'server' AND DatabaseUser = N'mcp_reader' AND CallerKey = N'local'
+            """;
         var before = await IntegrationDatabase.QueryScalarAsync<int>(countSql);
 
         await _repository.WriteAuditAsync("integration-test", "get_dataset_info", "{}", 1, 5, success: true, error: null);

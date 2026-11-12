@@ -136,8 +136,7 @@ Then run a few tool calls and check the audit log. The `Caller` column now holds
 `alice@contoso.com [oid:...]` or `app:<client-id> [oid:...]`:
 
 ```sql
-SELECT TOP 20 * FROM trading.AuditLog ORDER BY AuditId DESC;
-SELECT TOP 20 * FROM trading.ProcedureCallLog ORDER BY CallId DESC;   -- CallerKey holds the object ID
+SELECT TOP 20 * FROM trading.AuditLog ORDER BY AuditId DESC;   -- CallerKey holds the object ID
 ```
 
 ## 5. What works today, and what doesn't

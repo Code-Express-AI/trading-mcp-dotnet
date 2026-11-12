@@ -27,8 +27,9 @@ GO
      So calls inside a transaction are refused. (The MCP server never opens one.)
    - Written after the SELECT, the record would be lost if a client disconnected once it had the rows.
      So it's written first, and commits on its own.
-   It lives in the trading schema, so mcp_reader can't run it or touch the table directly; the mcp procedures
-   reach both through ownership chaining. */
+   It writes Source 'procedure'. mcp.WriteAudit can only write Source 'server', so mcp_reader can't forge a
+   procedure's row. This helper lives in the trading schema, so mcp_reader can't run it directly; the mcp
+   procedures reach it, and the table, through ownership chaining. */
 CREATE OR ALTER PROCEDURE trading.RecordProcedureCall
     @ProcedureName NVARCHAR(128),
     @Arguments     NVARCHAR(4000)
@@ -38,8 +39,9 @@ BEGIN
     SET IMPLICIT_TRANSACTIONS OFF;
     IF @@TRANCOUNT > 0
         THROW 50009, N'This procedure can''t run inside a transaction.', 1;
-    INSERT trading.ProcedureCallLog (DatabaseUser, Caller, CallerKey, ProcedureName, Arguments)
-    VALUES (USER_NAME(),
+    INSERT trading.AuditLog (Source, DatabaseUser, Caller, CallerKey, ToolName, Parameters)
+    VALUES (N'procedure',
+            USER_NAME(),
             CAST(SESSION_CONTEXT(N'caller') AS NVARCHAR(200)),
             CAST(SESSION_CONTEXT(N'caller_key') AS NVARCHAR(128)),
             @ProcedureName, @Arguments);
@@ -247,7 +249,8 @@ BEGIN
 END
 GO
 
-/* The only write mcp_reader can make. It can add audit rows but never read or change them. */
+/* The only write mcp_reader can make. It can add the server's audit rows (Source 'server') but never read or
+   change them, and never write a procedure's row. */
 CREATE OR ALTER PROCEDURE mcp.WriteAudit
     @Caller       NVARCHAR(200),
     @ToolName     NVARCHAR(100),
@@ -259,8 +262,9 @@ CREATE OR ALTER PROCEDURE mcp.WriteAudit
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT trading.AuditLog (Caller, ToolName, Parameters, RowsReturned, DurationMs, Success, Error)
-    VALUES (@Caller, @ToolName, @Parameters, @RowsReturned, @DurationMs, @Success, @Error);
+    INSERT trading.AuditLog (Source, DatabaseUser, CallerKey, Caller, ToolName, Parameters, RowsReturned, DurationMs, Success, Error)
+    VALUES (N'server', USER_NAME(), CAST(SESSION_CONTEXT(N'caller_key') AS NVARCHAR(128)),
+            @Caller, @ToolName, @Parameters, @RowsReturned, @DurationMs, @Success, @Error);
 END
 GO
 

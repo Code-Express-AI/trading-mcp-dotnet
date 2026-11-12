@@ -31,7 +31,7 @@ We'll show you how to:
   - Stored-procedure-only database access
   - Row-level security, so each caller sees only its own clients
   - Data masking
-  - Two audit logs of every tool call, one written by the server and one by the database itself, whose rows can't be changed or deleted, even by `sa`
+  - A database audit log of every tool call, written by both the server and the database itself, whose rows can't be changed or deleted, even by `sa`
 
 ## Try it for free
 
@@ -118,7 +118,7 @@ flowchart LR
     U([You]) --> H["Host<br/>(VS Code + Copilot)"]
     H <-. "prompts and<br/>tool choices" .-> L["LLM<br/>(cloud or local)"]
     H -- "MCP over HTTP<br/>+ bearer token" --> S["MCP server<br/>(.NET minimal API)<br/>auth, audit, rate limit"]
-    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit logs")]
+    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit log")]
 ```
 
 Many MCP database examples give the model a tool that runs any SQL it writes. We don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
@@ -198,7 +198,7 @@ Each layer grants only what's needed, and holds even if the one above it fails.
 | What the database allows | `EXECUTE` on the stored procedures and nothing else: `DENY` on every table, fixed columns, row limits, no dynamic SQL |
 | Which rows | Row-level security: each caller sees only the clients it's mapped to, and their accounts and trades |
 | What leaks | Account numbers and emails are masked, and unexpected database errors never reach the model, only a generic message |
-| What's recorded | Every call, twice: by the server, and by each stored procedure before it returns any data, so a call that bypasses the server still leaves a row. Both are append-only ledger tables whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest |
+| What's recorded | Every call, in an append-only ledger table whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest. The server writes a row with the outcome, and each stored procedure writes its own before it returns any data, so a call that bypasses the server still leaves a row |
 
 Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
 

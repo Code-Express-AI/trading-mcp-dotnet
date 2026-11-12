@@ -60,7 +60,7 @@ To add a tool:
 - `OriginCheckMiddleware` runs before authentication and refuses any `Origin` header not in `Mcp:AllowedOrigins` (empty by default), as the MCP specification requires. If a host sends an `Origin`, add that exact origin to the list. Never use wildcards or skip the check.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
 - The server reads `.env` only in Development, and only for settings not configured elsewhere. Never let it read `.env` in Production.
-- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog` by the server and to `trading.ProcedureCallLog` by the procedure itself, before it returns data. Both are append-only ledger tables. Never make them updatable, and never let a read procedure skip `trading.RecordProcedureCall` or run inside a transaction.
+- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`, an append-only ledger table, by the server (`Source` 'server', through `mcp.WriteAudit`) and by the procedure itself before it returns data (`Source` 'procedure', through `trading.RecordProcedureCall`). Never make it updatable, never let `mcp.WriteAudit` write a 'procedure' row, and never let a read procedure skip `trading.RecordProcedureCall` or run inside a transaction.
 
 ## Docs conventions
 

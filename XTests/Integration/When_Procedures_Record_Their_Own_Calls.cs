@@ -2,8 +2,8 @@ using Microsoft.Data.SqlClient;
 
 namespace XTests.Integration;
 
-// Each read procedure writes its own row to trading.ProcedureCallLog before it returns any data, so a call is
-// recorded whoever makes it, and the record can't be rolled back.
+// Each read procedure writes its own row to trading.AuditLog (Source 'procedure') before it returns any data, so a
+// call is recorded whoever makes it, and the record can't be rolled back.
 [Trait("Category", "Integration")]
 public class When_Procedures_Record_Their_Own_Calls
 {
@@ -13,7 +13,7 @@ public class When_Procedures_Record_Their_Own_Calls
     private readonly string _marker = $"Zz{Guid.NewGuid():N}"[..20];
 
     private Task<int> CountCallsAsync(string where = "1 = 1") => IntegrationDatabase.QueryScalarAsync<int>(
-        $"SELECT COUNT(*) FROM trading.ProcedureCallLog WHERE Arguments = N'{{\"name\":\"{_marker}\"}}' AND {where}");
+        $"SELECT COUNT(*) FROM trading.AuditLog WHERE Source = N'procedure' AND Parameters = N'{{\"name\":\"{_marker}\"}}' AND {where}");
 
     private Task RunAsReaderAsync(string sql) => IntegrationDatabase.ExecuteAsync(sql, IntegrationDatabase.ReaderConnectionString);
 
@@ -23,7 +23,7 @@ public class When_Procedures_Record_Their_Own_Calls
         await IntegrationDatabase.RepositoryFor("copilot").FindAccounts(_marker, default);
 
         Assert.Equal(1, await CountCallsAsync(
-            "ProcedureName = N'mcp.FindAccounts' AND DatabaseUser = N'mcp_reader' AND Caller = N'copilot' AND CallerKey = N'copilot'"));
+            "ToolName = N'mcp.FindAccounts' AND DatabaseUser = N'mcp_reader' AND Caller = N'copilot' AND CallerKey = N'copilot' AND Success IS NULL"));
     }
 
     // Someone with the mcp_reader password and their own code still leaves a row, with the database user it saw.

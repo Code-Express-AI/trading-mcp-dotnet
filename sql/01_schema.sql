@@ -93,7 +93,13 @@ CREATE INDEX IX_Trade_Account_Time ON trading.Trade(AccountId, TradeTimestamp DE
     INCLUDE (InstrumentId, Side, Quantity, Price, Fees, Status);
 CREATE INDEX IX_Trade_Instrument_Time ON trading.Trade(InstrumentId, TradeTimestamp DESC);
 
-/* Written by the MCP server, one row per tool call.
+/* One row per tool call from the MCP server (Source 'server'), and one per stored procedure call from the procedure
+   itself (Source 'procedure'), written before it returns any data (trading.RecordProcedureCall in 03_procedures.sql).
+   The server's rows have the outcome: rows returned, duration, success and error. The procedure's rows don't
+   depend on the server: anyone who runs a procedure, even with the mcp_reader password and their own code, leaves
+   one. For those, ToolName holds the procedure name and Parameters its arguments. DatabaseUser is who the database
+   saw. Caller and CallerKey come from the session context the server sets, so they're only as trustworthy as
+   the server.
    An append-only ledger table: rows can be added but never updated or deleted, not even by sa.
    SQL Server also chains a hash through every row, and sys.sp_verify_database_ledger checks it against a
    saved digest. That only detects tampering if the digest is stored where sa can't reach it: sa can still
@@ -103,30 +109,16 @@ CREATE TABLE trading.AuditLog (
     AuditId        BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AuditLog PRIMARY KEY,
     AuditKey       UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_AuditLog_Key DEFAULT (NEWID()) CONSTRAINT UQ_AuditLog_Key UNIQUE,
     OccurredAtUtc  DATETIME2(3)  NOT NULL CONSTRAINT DF_AuditLog_Time DEFAULT (SYSUTCDATETIME()),
-    Caller         NVARCHAR(200) NULL,        -- token subject / client id
-    ToolName       NVARCHAR(100) NOT NULL,
+    Caller         NVARCHAR(200) NULL,        -- token name, or Entra name and object ID
+    ToolName       NVARCHAR(100) NOT NULL,    -- the tool, or for Source 'procedure' the procedure
     Parameters     NVARCHAR(MAX) NULL,        -- JSON of the arguments
     RowsReturned   INT           NULL,
     DurationMs     INT           NULL,
-    Success        BIT           NOT NULL,
-    Error          NVARCHAR(500) NULL
-) WITH (LEDGER = ON (APPEND_ONLY = ON));
-GO
-
-/* Written by the read procedures themselves, before they return any data (trading.RecordProcedureCall in
-   03_procedures.sql). AuditLog above only holds what the server chooses to write. This one doesn't depend on the
-   server: anyone who runs a procedure, even with the mcp_reader password and their own code, leaves a row.
-   DatabaseUser is who the database saw. Caller and CallerKey come from the session context the server sets,
-   so they're only as trustworthy as the server. The same ledger protection as AuditLog. */
-CREATE TABLE trading.ProcedureCallLog (
-    CallId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_ProcedureCallLog PRIMARY KEY,
-    CallKey        UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_ProcedureCallLog_Key DEFAULT (NEWID()) CONSTRAINT UQ_ProcedureCallLog_Key UNIQUE,
-    OccurredAtUtc  DATETIME2(3)   NOT NULL CONSTRAINT DF_ProcedureCallLog_Time DEFAULT (SYSUTCDATETIME()),
-    DatabaseUser   NVARCHAR(128)  NOT NULL,
-    Caller         NVARCHAR(200)  NULL,
-    CallerKey      NVARCHAR(128)  NULL,
-    ProcedureName  NVARCHAR(128)  NOT NULL,
-    Arguments      NVARCHAR(4000) NULL        -- JSON of the arguments
+    Success        BIT           NULL,        -- NULL for Source 'procedure': written before the outcome is known
+    Error          NVARCHAR(500) NULL,
+    Source         NVARCHAR(10)  NOT NULL CONSTRAINT CK_AuditLog_Source CHECK (Source IN (N'server', N'procedure')),
+    DatabaseUser   NVARCHAR(128) NOT NULL,
+    CallerKey      NVARCHAR(128) NULL         -- the key row-level security used
 ) WITH (LEDGER = ON (APPEND_ONLY = ON));
 GO
 
