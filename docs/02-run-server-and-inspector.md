@@ -66,10 +66,11 @@ Inspector's screens change between versions, so the labels may differ slightly, 
 | Call | What comes back |
 |---|---|
 | `find_accounts` with `name` = `a` | An error: name must be at least 2 characters |
+| `find_accounts` with `name` = `%%` | An error: name may only contain letters, digits, spaces, apostrophes, hyphens and full stops |
 | `get_top_movers` with `count` = `50` | An error: count must be between 1 and 20 |
 | `get_price_history` with `ticker` = `NOPE` | An error: unknown ticker, use `search_instruments` |
 
-Each error is marked as an error and says what to do instead, so a model can correct itself rather than assume there's no data. The first two are checked by the server, the third by the stored procedure.
+Each error is marked as an error and says what to do instead, so a model can correct itself rather than assume there's no data. The first three are checked by the server, the last by the stored procedure.
 
 **See the protocol.** Inspector's history shows each request and response. A model's host does the same thing behind the scenes: `tools/list` to discover the tools, then `tools/call` for each call.
 

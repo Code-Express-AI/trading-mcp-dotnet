@@ -149,6 +149,12 @@ EXEC mcp.GetPriceHistory @Ticker = N'NOPE';           -- refused: "Unknown ticke
 DELETE FROM trading.Trade;                            -- refused: no permission on the table
 ```
 
+Each of those procedure calls left a row in `trading.ProcedureCallLog`, with `DatabaseUser` set to `mcp_reader`, even though the MCP server wasn't involved. As `sa`, look at the latest ones:
+
+```sql
+SELECT TOP 5 OccurredAtUtc, DatabaseUser, CallerKey, ProcedureName, Arguments FROM trading.ProcedureCallLog ORDER BY CallId DESC;
+```
+
 `mcp_reader` can set any caller it likes, so anyone with its password can choose whose clients to see. The MCP server sets the caller from the token, read-only, so a model can't change it. Keep the `mcp_reader` password as secret as the tokens.
 
 These rules are also checked automatically by the integration tests in `XTests/Integration`.
@@ -198,7 +204,7 @@ docker image rm mcr.microsoft.com/mssql/server:2022-latest
 
 ## Use an existing SQL Server instead
 
-You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead of Docker. Earlier versions won't work, because the audit table is a ledger table.
+You can use an existing SQL Server 2022 (or later) or Azure SQL Database instead of Docker. Earlier versions won't work, because the audit tables are ledger tables.
 
 1. For SQL Server, run `sql/00_create_database.sql` as an administrator connected to `master`. For Azure SQL Database, create an empty database in Azure and skip this script.
 2. Connect to `TradingDemo` and run `sql/01_schema.sql`, `sql/02_security.sql` and `sql/03_procedures.sql`, in that order. In `02_security.sql`, replace the password placeholder with a strong password for `mcp_reader`, and keep it for the MCP server's connection string.

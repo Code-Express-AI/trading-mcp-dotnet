@@ -14,7 +14,7 @@ Everything here fits Azure's free tiers: the [Azure SQL Database free offer](htt
    ```sh
    dotnet run --project DataGenerator -- 'Server=tcp:<server>.database.windows.net,1433;Database=<database>;User ID=<admin>;Password=<admin-password>;Encrypt=True' --reset
    ```
-4. Turn on auditing for the logical server, under **Security** → **Auditing** in the Azure portal, sending the records to a Log Analytics workspace or a storage account. Azure SQL then records every query and procedure call itself, whoever runs it. The server's own audit log only records calls that go through the server. Either destination can cost a little beyond the free tiers.
+4. Turn on auditing for the logical server, under **Security** → **Auditing** in the Azure portal, sending the records to a Log Analytics workspace or a storage account. Azure SQL then records every query and procedure call itself, whoever runs it. The project's two audit logs only cover the stored procedures; this also records direct queries and administrator activity. Either destination can cost a little beyond the free tiers.
 
 Never use `TrustServerCertificate=True` with Azure SQL: Azure has a proper certificate, so leave certificate checking on.
 
@@ -71,8 +71,8 @@ Then check the deployment:
    ```sh
    npx @modelcontextprotocol/inspector --cli https://<app-name>.azurewebsites.net/mcp --header "Authorization: Bearer <entra-token>" --method tools/call --tool-name get_dataset_info
    ```
-3. Check the audit log. The `Caller` column now shows the Entra identity instead of a token name. Azure SQL's own audit records, from step 4 of section 1, show the same call made by `mcp_reader`.
-4. Turn on automatic digest storage for the ledger, under the database's **Security** → **Ledger** settings in the Azure portal. Azure SQL then saves the audit log's hash chain to immutable storage. Without a saved digest, someone with full control of the database server can drop the database, rebuild it and replay a doctored audit log, and nothing detects it.
+3. Check the audit log. The `Caller` column now shows the Entra identity instead of a token name. `trading.ProcedureCallLog` shows the same call with your object ID as `CallerKey`, and Azure SQL's own audit records, from step 4 of section 1, show it made by `mcp_reader`.
+4. Turn on automatic digest storage for the ledger, under the database's **Security** → **Ledger** settings in the Azure portal. Azure SQL then saves the hash chains of both audit logs to immutable storage. Without a saved digest, someone with full control of the database server can drop the database, rebuild it and replay a doctored history, and nothing detects it.
 
 Not every interactive MCP client can complete Entra's sign-in flow, so test your chosen client before relying on it. See the [limitations in the Entra guide](entra-setup.md#5-what-works-today-and-what-doesnt).
 
@@ -86,5 +86,5 @@ This project is a demo. Before putting an MCP server like this in front of a rea
 - **Keep model traffic off the system the business runs on.** Point the server at a separate copy of the data. A read-only replica won't work as it stands: each read procedure writes its own row to `trading.ProcedureCallLog`, and a replica refuses writes. Either keep a writable reporting copy, or send that row somewhere else.
 - **Lock down the database network.** Disable public access and connect from App Service through a private endpoint. This needs VNet integration, which requires the Basic plan or above. If the database stays public, allow only the App Service's outbound IP addresses and your admin machine. Don't turn on **Allow Azure services and resources to access this server**: it lets in every Azure customer's resources, not just your app.
 - **Lock down who can reach the server.** If your users work from known networks, allow only those addresses with App Service access restrictions. If they're all in a few countries, a geo-filter on Azure Front Door's WAF, or Cloudflare, blocks the rest of the world before requests reach the app. Treat it as a noise filter, not a security control: a VPN gets around it, and it blocks your own users when they travel.
-- **Ship logs and audit data off the server.** Send logs to Application Insights or Log Analytics. Remember that the audit log records the arguments, such as names searched for, so treat it as sensitive.
+- **Ship logs and audit data off the server.** Send logs to Application Insights or Log Analytics. Remember that both audit logs record the arguments, such as names searched for, so treat them as sensitive.
 - **Use short-lived tokens.** The local static tokens never expire. Use Entra ID, so tokens expire and access can be revoked centrally.

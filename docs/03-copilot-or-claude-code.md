@@ -142,6 +142,7 @@ claude mcp remove trading
 
 - **Copilot lists the tools but never calls them:** it's probably reading them from the code. Ask again as in step 3, telling it to use the server and not the code.
 - **It works in MCP Inspector but not in VS Code:** the server is fine, so check the URL and header in the VS Code configuration.
+- **A client can't be found, or there seem to be fewer accounts than expected:** you're probably using a named token from user-secrets, such as `copilot`, which sees only some of the clients. The `MCP_TOKEN` token from `.env` sees them all. See [Try row-level security](02-run-server-and-inspector.md#try-row-level-security).
 
 ### Claude Code
 

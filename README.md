@@ -31,7 +31,7 @@ We'll show you how to:
   - Stored-procedure-only database access
   - Row-level security, so each caller sees only its own clients
   - Data masking
-  - A database audit log of every tool call, whose rows can't be changed or deleted, even by `sa`
+  - Two audit logs of every tool call, one written by the server and one by the database itself, whose rows can't be changed or deleted, even by `sa`
 
 ## Try it for free
 
@@ -118,7 +118,7 @@ flowchart LR
     U([You]) --> H["Host<br/>(VS Code + Copilot)"]
     H <-. "prompts and<br/>tool choices" .-> L["LLM<br/>(cloud or local)"]
     H -- "MCP over HTTP<br/>+ bearer token" --> S["MCP server<br/>(.NET minimal API)<br/>auth, audit, rate limit"]
-    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit log")]
+    S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit logs")]
 ```
 
 Many MCP database examples give the model a tool that runs any SQL it writes. We don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
@@ -156,12 +156,13 @@ public Task<IReadOnlyList<Account>> FindAccounts(
     {
         ToolArguments.Require(name?.Trim().Length >= 2, "name must be at least 2 characters, for example 'Thompson'.");
         ToolArguments.Require(name!.Length <= 100, "name must be at most 100 characters.");
-        return repo.FindAccounts(name, ct);
+        return repo.FindAccounts(ToolArguments.RequirePlainText(name, nameof(name)), ct);
     });
 ```
 
 - **`[Description]`** is written for the model, not for people. It's how the model knows when to call the tool, and what to do with the result.
 - **`ToolArguments.Require`** rejects a bad argument with a message that tells the model how to fix it.
+- **`ToolArguments.RequirePlainText`** lets through only letters, digits, spaces and `' - .`. SQL Server's collation ignores some invisible characters, so two of them would otherwise pass the 2-character minimum and match every client.
 - **`audit.RunAsync`** records every call, including rejected ones.
 - **`repo.FindAccounts`** calls one stored procedure. That's all the database lets the server do.
 
@@ -177,7 +178,7 @@ The detailed guides walk you through each step, explain why we built it that way
 
 ## Tests
 
-Unit tests need nothing installed. Integration tests run against the local Docker SQL Server and prove the security holds: the MCP login can't read or change the tables directly, and nobody, not even `sa`, can change or delete a row of the audit log. If SQL Server isn't running, they're skipped with the reason. GitHub Actions runs every test on every push, and there a missing database fails the build instead.
+Unit tests need nothing installed. Integration tests run against the local Docker SQL Server and prove the security holds: the MCP login can't read or change the tables directly, holds no permission beyond an exact list, and sees only its caller's clients. Every procedure call is recorded, and nobody, not even `sa`, can change or delete an audit row. If SQL Server isn't running, they're skipped with the reason. GitHub Actions runs every test on every push, and there a missing database fails the build instead.
 
 ```sh
 dotnet test XTests/XTests.csproj                                     # all tests
@@ -206,7 +207,7 @@ Before using this pattern with a real database, see [Before you go to production
 | Component | Version | Date checked |
 |-----------|---------|--------------|
 | .NET SDK | 10.0.x | 22-Oct-2026 |
-| ModelContextProtocol.AspNetCore | 2.3.0 | 22-Oct-2026 |
+| ModelContextProtocol.AspNetCore | 2.4.0 | 12-Nov-2026 |
 | SQL Server container | 2022-latest | 22-Oct-2026 |
 | Host / model | VS Code 1.143.1 / Copilot free tier, Auto model selection (Copilot picked gpt-6-luna) | 23-Oct-2026 |
 | Host / model | Claude Code 2.1.309 / Claude Opus 5.5 | 23-Oct-2026 |
@@ -218,10 +219,14 @@ The MCP SDK and its authorization support are changing quickly. If something doe
 - [TradingTools.cs](McpServer/Tools/TradingTools.cs): the eight tools, their descriptions and argument checks
 - [03_procedures.sql](sql/03_procedures.sql): the stored procedures, the security boundary
 - [02_security.sql](sql/02_security.sql): the read-only database user, with `DENY` on every table, and row-level security
+- [ToolArguments.cs](McpServer/Tools/ToolArguments.cs): the argument checks, including the character allowlist
+- [TradingRepository.cs](McpServer/Repository/TradingRepository.cs): one stored-procedure call per method, and the caller passed to the database on every connection
 - [AuditService.cs](McpServer/Audit/AuditService.cs): auditing, and errors written for the model
 - [McpServerApplication.cs](McpServer/McpServerApplication.cs): the whole server, set up on one page
 - [When_The_Mcp_Reader_Bypasses_The_Procedures.cs](XTests/Integration/When_The_Mcp_Reader_Bypasses_The_Procedures.cs) and [When_The_Audit_Log_Is_Tampered_With.cs](XTests/Integration/When_The_Audit_Log_Is_Tampered_With.cs): the tests that prove the database refuses
+- [When_Mcp_Reader_Permissions_Are_Listed.cs](XTests/Integration/When_Mcp_Reader_Permissions_Are_Listed.cs): fails on any permission the scripts don't grant
 - [When_Rows_Are_Filtered_By_Caller.cs](XTests/Integration/When_Rows_Are_Filtered_By_Caller.cs): the tests that prove each caller sees only its own clients
+- [When_Procedures_Record_Their_Own_Calls.cs](XTests/Integration/When_Procedures_Record_Their_Own_Calls.cs): the tests that prove every procedure call is recorded, even one that bypasses the server
 
 ## Licence
 
