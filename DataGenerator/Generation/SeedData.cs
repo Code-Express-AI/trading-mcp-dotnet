@@ -1,3 +1,5 @@
+using TradingDataGenerator.Models;
+
 namespace TradingDataGenerator.Generation;
 
 internal static class SeedData
@@ -46,4 +48,18 @@ internal static class SeedData
         };
 
     public static int MaxInstruments => CompanyNamePrefixes.Count * CompanyNameSuffixes.Count;
+
+    // The docs and videos search for "Thompson", so these two clients always exist, whatever the seed or Bogus version.
+    // Every Thompson gets at least two accounts (AccountGenerator) and is visible to every token (CallerClientGenerator),
+    // so a search for "Thompson" always finds at least four accounts. With seed 42, Bogus picks these names anyway.
+    public const string ExampleLastName = "Thompson";
+    public const int ExampleClientMinimumAccounts = 2;
+
+    public static IReadOnlyDictionary<int, string> ExampleClientFirstNames { get; } = new Dictionary<int, string>
+    {
+        [34] = "Giovanny",
+        [53] = "Tessie"
+    };
+
+    public static bool IsExampleClient(Client client) => client.FullName.EndsWith($" {ExampleLastName}", StringComparison.Ordinal);
 }

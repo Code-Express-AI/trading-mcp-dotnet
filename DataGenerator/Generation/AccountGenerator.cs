@@ -24,6 +24,11 @@ internal static class AccountGenerator
         foreach (var client in clients)
         {
             var accountCount = ChooseAccountCount(random);
+            if (SeedData.IsExampleClient(client))
+            {
+                accountCount = Math.Max(accountCount, SeedData.ExampleClientMinimumAccounts);
+            }
+
             for (var i = 0; i < accountCount; i++)
             {
                 accounts.Add(new Account(

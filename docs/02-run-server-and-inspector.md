@@ -132,22 +132,37 @@ Once any token is set in user-secrets, `MCP_TOKEN` in `.env` is no longer accept
 
 ### Try row-level security
 
-Give two tokens different names, and the same question gets different answers. Generate two more tokens as above, then set them and restart the server:
+This repeats [Row-level security, step by step](01-docker-database.md#row-level-security-step-by-step) from guide 1, but through the MCP server with a real token for each caller. Do step 1 of that walkthrough first, so you have names to search for.
+
+**1. Generate three tokens,** one each for `claude`, `copilot` and `inspector`, with the command at the top of this section.
+
+**2. Set all four tokens.** Stop the server with Ctrl+C. Once any token is set in user-secrets, `MCP_TOKEN` in `.env` stops working, so set `local` to the same value as `MCP_TOKEN`. That keeps Copilot and Claude Code working as before:
 
 ```sh
-dotnet user-secrets set "Mcp:Tokens:copilot" "<copilot-token>" --project McpServer
+dotnet user-secrets set "Mcp:Tokens:local" "<MCP_TOKEN from .env>" --project McpServer
 dotnet user-secrets set "Mcp:Tokens:claude" "<claude-token>" --project McpServer
+dotnet user-secrets set "Mcp:Tokens:copilot" "<copilot-token>" --project McpServer
+dotnet user-secrets set "Mcp:Tokens:inspector" "<inspector-token>" --project McpServer
 dotnet run --project McpServer
 ```
 
-Then ask for the Berniers with each token:
+**3. Search for a `claude`-only name with each token.** Take a name from list 2 of guide 1's step 1, and put it in place of `<name from list 2>`. In a second terminal, run these three commands. The first finds the client; the other two return an empty list:
 
 ```sh
-npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <copilot-token>" --method tools/call --tool-name find_accounts --tool-arg name=Bernier
-npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <claude-token>" --method tools/call --tool-name find_accounts --tool-arg name=Bernier
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <claude-token>" --method tools/call --tool-name find_accounts --tool-arg "name=<name from list 2>"
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <copilot-token>" --method tools/call --tool-name find_accounts --tool-arg "name=<name from list 2>"
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <inspector-token>" --method tools/call --tool-name find_accounts --tool-arg "name=<name from list 2>"
 ```
 
-Each token gets a different Bernier, and the `local` token gets both. With the default data, `copilot` sees Einar Bernier and `claude` sees Milan Bernier. The Thompsons are shared, so every token sees both of them. Try `get_positions` with the other token's `accountKey`: it gets "Unknown accountKey", the same as for a key that doesn't exist.
+**4. Repeat with the other lists.** Change the name in all three commands and run them again: first a name from list 3 (`copilot` only), then one from list 4 (`inspector` only), then `Thompson`, which all three find. The results should match the table in [guide 1](01-docker-database.md#row-level-security-step-by-step). The `local` token finds all of them.
+
+**5. Try an account that isn't yours.** Copy an `accountKey` from the `claude` search, then call `get_positions` with it using the `copilot` token. The answer is "Unknown accountKey", the same as for a key that doesn't exist, so it doesn't confirm that the account is there:
+
+```sh
+npx @modelcontextprotocol/inspector --cli http://localhost:5080/mcp --header "Authorization: Bearer <copilot-token>" --method tools/call --tool-name get_positions --tool-arg accountKey=<accountKey>
+```
+
+To go back to the `.env` token only, run `dotnet user-secrets clear --project McpServer` and restart the server.
 
 ## Troubleshooting
 

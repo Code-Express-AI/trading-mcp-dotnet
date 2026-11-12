@@ -88,6 +88,48 @@ dotnet run --project DataGenerator -- --reset --end-date=2026-06-30
 - `--reset` deletes the existing data and loads new data. Without it, the generator refuses to touch a database that already has data.
 - The data ends yesterday, so it changes from day to day. `--end-date` makes it repeatable: the same end date always produces exactly the same data.
 
+## The tables
+
+All the tables are in the `trading` schema. Only the main columns are shown here:
+
+```text
+┌─────────────────────┐                                 ┌─────────────────────┐     ┌─────────────────────┐
+│ Instrument          │                                 │ Client              │     │ AuditLog (ledger)   │
+├─────────────────────┤                                 ├─────────────────────┤     ├─────────────────────┤
+│ InstrumentId     PK │                                 │ ClientId         PK │     │ AuditId          PK │
+│ InstrumentKey       │     ┌─────────────────────┐     │ ClientKey           │     │ OccurredAtUtc       │
+│ Ticker              │     │ Trade               │     │ FullName            ├1─┐  │ Source              │
+│ Name                │     ├─────────────────────┤     │ Email*              │  │  │ Caller              │
+│ Sector              ├1───n┤ TradeId          PK │     │ …                   │  │  │ CallerKey           │
+│ …                   │     │ TradeKey            │     └─────────┬───────────┘  │  │ ToolName            │
+└─────────┬───────────┘     │ AccountId        FK │               │ 1            │  │ Success             │
+          │ 1               │ InstrumentId     FK │               │ n            │  │ …                   │
+          │                 │ Side                │     ┌─────────┴───────────┐  │  └─────────────────────┘
+          │ n               │ Quantity            │     │ Account             │  │
+┌─────────┴───────────┐     │ Price               │     ├─────────────────────┤  │
+│ InstrumentPrice     │     │ …                   ├n───1┤ AccountId        PK │  │  ┌─────────────────────┐
+├─────────────────────┤     └─────────────────────┘     │ AccountKey          │  │  │ CallerClient (RLS)  │
+│ InstrumentId  PK FK │                                 │ ClientId         FK │  │  ├─────────────────────┤
+│ PriceDate        PK │                                 │ AccountNumber*      │  │  │ CallerKey        PK │
+│ OpenPrice           │                                 │ AccountType         │  └─n┤ ClientId      PK FK │
+│ HighPrice           │                                 │ …                   │     └─────────────────────┘
+│ LowPrice            │                                 └─────────────────────┘
+│ ClosePrice          │                                                             ┌┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┐
+│ …                   │                                                             ┆ v_Position          ┆
+└─────────────────────┘                                                             └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
+                                                                                    ┌┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┐
+                                                                                    ┆ v_PositionValuation ┆
+                                                                                    └┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘
+```
+
+- `1` and `n` mark a one-to-many relationship: one instrument has many prices and many trades, for example.
+- `*` marks a masked column.
+- Dashed boxes are views. `v_Position` adds up each account's trades into holdings, and `v_PositionValuation` values them at the latest price.
+- `AuditLog (ledger)` is a ledger table: rows can be added but never changed or deleted. It isn't linked to the other tables, because it records the tool calls, not the trading data. See **A tamper-evident audit log** below.
+- `CallerClient (RLS)` lists which clients each caller may see. RLS stands for row-level security: the database filters `Client`, `Account` and `Trade` so each caller sees only its own clients' rows. See **Row-level security** below.
+
+Every table with an integer `…Id` key also has a random `…Key` GUID. The joins use the integers, and only the GUIDs ever leave the database: see **No internal IDs leave the database** below.
+
 ## How the database is locked down
 
 The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing. Each layer grants only what's needed, following the principle of least privilege.
@@ -99,6 +141,8 @@ The MCP server connects as `mcp_reader`, and `mcp_reader` can do almost nothing.
 **Ownership chaining makes it work.** The procedures can read tables that `mcp_reader` can't, because the procedures and the tables have the same owner. SQL Server then skips the permission check on the tables. Dynamic SQL (`EXEC(@sql)`) would break that chain, which is one more reason the procedures don't use it.
 
 **Row-level security.** Each caller sees only its own clients, and their accounts and trades. `trading.CallerClient` lists which clients each caller may see, and a security policy in `02_security.sql` filters the `Client`, `Account` and `Trade` tables with it, for every query. The MCP server tells the database who's calling by setting `caller_key` in the session context of every connection, read-only. Because the filter is on the tables, the stored procedures don't need to remember it, and an account the caller can't see gets the same "Unknown accountKey" error as one that doesn't exist. The data generator gives the `local` token (from `.env`) every client. It gives the `copilot`, `claude` and `inspector` tokens a quarter each, plus a final quarter that all three share. Every Thompson is in the shared quarter, so the examples in these guides work with any token. A caller with no rows sees nothing. Admins (`db_owner`, including `sa`) see everything, so the data can still be loaded.
+
+To try it step by step, see [Row-level security, step by step](#row-level-security-step-by-step) below.
 
 **Masking.** Account numbers and email addresses are masked in the table definitions. `mcp_reader` doesn't have the `UNMASK` permission, so it only ever sees values like `ACCXXXXX149`. That holds even through the stored procedures, because ownership chaining skips the table permission checks but not masking: SQL Server checks whether the caller has `UNMASK`, not the procedure's owner.
 
@@ -167,9 +211,112 @@ docker exec -it trading-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -C 
 
 Type a query, then `GO` on its own line to run it, and `exit` to leave.
 
+### Row-level security, step by step
+
+In this walkthrough you play the part of the MCP server: you tell the database who's calling, then search for clients and see which callers can find them. Use the two connections from above, one as `sa` and one as `mcp_reader`.
+
+**Step 1: as `sa`, find some names to search for.** Run these five queries in the `sa` connection. Row-level security doesn't filter admins, so `sa` can see which clients each token is given in `trading.CallerClient`. (`mcp_reader` can't read that table at all.) Note down a name or two from each of lists 2, 3 and 4. Apart from the Thompsons, the names depend on the generated data, so pick yours from your own results.
+
+1. **Every client the `local` token can see.** `local` is the token from `.env`, and it sees every client, so this lists all of them: 200 with the default settings.
+
+   ```sql
+   SELECT c.FullName
+   FROM   trading.Client c
+   WHERE  EXISTS (SELECT 1 FROM trading.CallerClient cc
+                  WHERE  cc.ClientId = c.ClientId AND cc.CallerKey = N'local')
+   ORDER BY c.FullName;
+   ```
+
+2. **Clients only `claude` can see.** The first condition keeps the clients given to `claude`. The second drops any client whose name `copilot` or `inspector` would also find. `find_accounts` matches any part of a name, so if one of them could see a client called "Ann Leeson", a search for "Ann Lee" would find something. Every name left is one that `claude` finds and the other two don't. You should get about a quarter of the clients:
+
+   ```sql
+   SELECT c.FullName
+   FROM   trading.Client c
+   WHERE  EXISTS (SELECT 1 FROM trading.CallerClient cc
+                  WHERE  cc.ClientId = c.ClientId AND cc.CallerKey = N'claude')
+     AND  NOT EXISTS (SELECT 1 FROM trading.CallerClient cc
+                      JOIN   trading.Client other ON other.ClientId = cc.ClientId
+                      WHERE  cc.CallerKey IN (N'copilot', N'inspector')
+                        AND  other.FullName LIKE N'%' + c.FullName + N'%')
+   ORDER BY c.FullName;
+   ```
+
+3. **Clients only `copilot` can see.** The same query with the tokens swapped:
+
+   ```sql
+   SELECT c.FullName
+   FROM   trading.Client c
+   WHERE  EXISTS (SELECT 1 FROM trading.CallerClient cc
+                  WHERE  cc.ClientId = c.ClientId AND cc.CallerKey = N'copilot')
+     AND  NOT EXISTS (SELECT 1 FROM trading.CallerClient cc
+                      JOIN   trading.Client other ON other.ClientId = cc.ClientId
+                      WHERE  cc.CallerKey IN (N'claude', N'inspector')
+                        AND  other.FullName LIKE N'%' + c.FullName + N'%')
+   ORDER BY c.FullName;
+   ```
+
+4. **Clients only `inspector` can see.** The same again:
+
+   ```sql
+   SELECT c.FullName
+   FROM   trading.Client c
+   WHERE  EXISTS (SELECT 1 FROM trading.CallerClient cc
+                  WHERE  cc.ClientId = c.ClientId AND cc.CallerKey = N'inspector')
+     AND  NOT EXISTS (SELECT 1 FROM trading.CallerClient cc
+                      JOIN   trading.Client other ON other.ClientId = cc.ClientId
+                      WHERE  cc.CallerKey IN (N'claude', N'copilot')
+                        AND  other.FullName LIKE N'%' + c.FullName + N'%')
+   ORDER BY c.FullName;
+   ```
+
+5. **Clients all three named tokens can see.** Each `EXISTS` line checks one token. This list always includes Giovanny and Tessie Thompson, the clients the other guides use:
+
+   ```sql
+   SELECT c.FullName
+   FROM   trading.Client c
+   WHERE  EXISTS (SELECT 1 FROM trading.CallerClient cc WHERE cc.ClientId = c.ClientId AND cc.CallerKey = N'claude')
+     AND  EXISTS (SELECT 1 FROM trading.CallerClient cc WHERE cc.ClientId = c.ClientId AND cc.CallerKey = N'copilot')
+     AND  EXISTS (SELECT 1 FROM trading.CallerClient cc WHERE cc.ClientId = c.ClientId AND cc.CallerKey = N'inspector')
+   ORDER BY c.FullName;
+   ```
+
+**Step 2: as `mcp_reader`, search as each token.** Take a name from list 2 and put it in place of `<name from list 2>`. In the `mcp_reader` connection, run these two lines together. The first tells the database who's calling, as the MCP server does on every connection. The second searches, as the `find_accounts` tool does:
+
+```sql
+EXEC sp_set_session_context N'caller_key', N'claude';
+EXEC mcp.FindAccounts @Name = N'<name from list 2>';     -- finds the client
+```
+
+Now change the caller to `copilot` and search again, then do the same for `inspector`. Neither finds anything:
+
+```sql
+EXEC sp_set_session_context N'caller_key', N'copilot';
+EXEC mcp.FindAccounts @Name = N'<name from list 2>';     -- nothing
+```
+
+```sql
+EXEC sp_set_session_context N'caller_key', N'inspector';
+EXEC mcp.FindAccounts @Name = N'<name from list 2>';     -- nothing
+```
+
+Repeat with a name from list 3, then list 4, then list 5. Each time, try all three tokens, and `local` too. This is what you should see:
+
+| Search for | `local` | `claude` | `copilot` | `inspector` |
+|---|---|---|---|---|
+| A name from list 2 | Found | Found | Nothing | Nothing |
+| A name from list 3 | Found | Nothing | Found | Nothing |
+| A name from list 4 | Found | Nothing | Nothing | Found |
+| `Thompson` (list 5) | Found | Found | Found | Found |
+
+- **Search for the full name, as it's listed.** Part of a name can match someone in another list. Two clients with the same surname can be in different lists, and then a search for just the surname finds one of them with each token.
+- **"Nothing" is an empty result, not an error.** To a caller, a client it can't see doesn't exist.
+- **Double any apostrophe in SQL.** For a name such as O'Connell, type `N'O''Connell'`. In MCP Inspector or a chat, type it as normal.
+- **Only `mcp_reader` can be told who's calling like this.** The MCP server sets the caller from the token, read-only, so a model can't change it. To try the same thing through the server with real tokens, see [Try row-level security](02-run-server-and-inspector.md#try-row-level-security) in guide 2.
+
 ## Troubleshooting
 
 - **A command fails in Command Prompt or Git Bash on Windows**, for example with `'cp' is not recognized`: run the commands in PowerShell, the default terminal in Windows Terminal and VS Code.
+- **`docker compose` reports `no configuration file provided: not found`:** you're not in the repository folder, so Docker can't find `docker-compose.yml`. Run `cd trading-mcp-dotnet`, then run the command again.
 - **Docker Desktop isn't running:** Docker commands fail with `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified` on Windows, or `Cannot connect to the Docker daemon` on macOS and Linux. Run `docker desktop start`, then try again.
 - **`docker desktop start` isn't recognised:** it needs Docker Desktop 4.37 or later. Update Docker Desktop, or start it from the Start menu or Applications folder.
 - **Port 1433 is already in use** (common on Windows): SQL Server or SQL Server Express is probably installed on your machine. Stop that SQL Server service, then run `docker compose up -d --wait` again.

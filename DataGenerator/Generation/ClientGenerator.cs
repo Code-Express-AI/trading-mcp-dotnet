@@ -18,6 +18,12 @@ internal static class ClientGenerator
     {
         var firstName = faker.Name.FirstName();
         var lastName = faker.Name.LastName();
+
+        // Replaced after Bogus has picked its names, so every other client stays the same.
+        if (SeedData.ExampleClientFirstNames.TryGetValue(id, out var exampleFirstName))
+        {
+            (firstName, lastName) = (exampleFirstName, SeedData.ExampleLastName);
+        }
         var emailName = Regex.Replace($"{firstName}.{lastName}".ToLowerInvariant(), "[^a-z.]", "");
 
         return new Client(

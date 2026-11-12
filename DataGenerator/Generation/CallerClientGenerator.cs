@@ -18,7 +18,7 @@ internal static class CallerClientGenerator
         yield return "local";
 
         var quarter = client.Id % 4;
-        if (quarter == 0 || client.FullName.EndsWith(" Thompson", StringComparison.Ordinal))
+        if (quarter == 0 || SeedData.IsExampleClient(client))
         {
             foreach (var token in NamedTokens)
             {

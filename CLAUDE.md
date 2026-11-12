@@ -71,3 +71,4 @@ To add a tool:
 - Node.js is optional: it's only needed for MCP Inspector, and the docs must say so.
 - Headings use sentence case.
 - Keep the data synthetic. No real companies, clients or prices.
+- The docs and videos use Thompson as the example client. `SeedData` guarantees Giovanny (34) and Tessie (53) Thompson for any seed, with at least two accounts each, visible to every token. Other client names come from Bogus and depend on the seed and the Bogus version, so never tell readers to search for one. Guide 1's queries show them how to find names in their own data. Made-up names that only illustrate a point ("Ann Lee", O'Connell) are fine.

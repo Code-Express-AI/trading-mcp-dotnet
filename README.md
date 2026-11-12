@@ -88,6 +88,8 @@ docker compose run --rm db-init
 dotnet run --project DataGenerator
 ```
 
+> **Note:** If `docker compose` reports `no configuration file provided: not found`, you're not in the repository folder. Run `cd trading-mcp-dotnet`, then run the commands again.
+
 **4. Run the MCP server.** It reads its settings from `.env`:
 
 ```sh
