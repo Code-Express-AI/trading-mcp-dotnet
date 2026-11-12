@@ -21,10 +21,36 @@ IF SCHEMA_ID(N'mcp') IS NULL
     EXEC(N'CREATE SCHEMA mcp');
 GO
 
+/* Every read procedure calls this first, so the database records each call itself, whoever runs it.
+   It closes two gaps:
+   - Inside the caller's transaction, a ROLLBACK after the rows come back would remove the record.
+     So calls inside a transaction are refused. (The MCP server never opens one.)
+   - Written after the SELECT, the record would be lost if a client disconnected once it had the rows.
+     So it's written first, and commits on its own.
+   It lives in the trading schema, so mcp_reader can't run it or touch the table directly; the mcp procedures
+   reach both through ownership chaining. */
+CREATE OR ALTER PROCEDURE trading.RecordProcedureCall
+    @ProcedureName NVARCHAR(128),
+    @Arguments     NVARCHAR(4000)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET IMPLICIT_TRANSACTIONS OFF;
+    IF @@TRANCOUNT > 0
+        THROW 50009, N'This procedure can''t run inside a transaction.', 1;
+    INSERT trading.ProcedureCallLog (DatabaseUser, Caller, CallerKey, ProcedureName, Arguments)
+    VALUES (USER_NAME(),
+            CAST(SESSION_CONTEXT(N'caller') AS NVARCHAR(200)),
+            CAST(SESSION_CONTEXT(N'caller_key') AS NVARCHAR(128)),
+            @ProcedureName, @Arguments);
+END
+GO
+
 CREATE OR ALTER PROCEDURE mcp.GetDatasetInfo
 AS
 BEGIN
     SET NOCOUNT ON;
+    EXEC trading.RecordProcedureCall N'mcp.GetDatasetInfo', NULL;
     SELECT  (SELECT MIN(PriceDate) FROM trading.InstrumentPrice) AS FirstPriceDate,
             (SELECT MAX(PriceDate) FROM trading.InstrumentPrice) AS LastPriceDate,
             (SELECT COUNT(*) FROM trading.Instrument)            AS Instruments,
@@ -38,6 +64,8 @@ CREATE OR ALTER PROCEDURE mcp.SearchInstruments
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @Text AS [text] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.SearchInstruments', @Arguments;
     SET @Text = LTRIM(RTRIM(@Text));
     IF LEN(@Text) < 1 RETURN;
 
@@ -59,6 +87,8 @@ CREATE OR ALTER PROCEDURE mcp.GetPriceHistory
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @Ticker AS ticker, @From AS [from], @To AS [to] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.GetPriceHistory', @Arguments;
     SET @From = ISNULL(@From, '1900-01-01');
     SET @To   = ISNULL(@To,   '9999-12-31');
     IF NOT EXISTS (SELECT 1 FROM trading.Instrument WHERE Ticker = @Ticker)
@@ -90,6 +120,8 @@ CREATE OR ALTER PROCEDURE mcp.GetTopMovers
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @Date AS [date], @Count AS [count] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.GetTopMovers', @Arguments;
     IF @Count < 1  SET @Count = 1;
     IF @Count > 20 SET @Count = 20;
 
@@ -119,6 +151,8 @@ CREATE OR ALTER PROCEDURE mcp.FindAccounts
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @Name AS [name] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.FindAccounts', @Arguments;
     SET @Name = LTRIM(RTRIM(@Name));
     IF LEN(@Name) < 2 RETURN;
 
@@ -145,6 +179,8 @@ CREATE OR ALTER PROCEDURE mcp.ListTrades
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @AccountKey AS accountKey, @From AS [from], @To AS [to], @Ticker AS ticker, @Page AS page FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.ListTrades', @Arguments;
     DECLARE @PageSize INT = 50;
     IF @Page < 1    SET @Page = 1;
     IF @Page > 1000 SET @Page = 1000;
@@ -172,6 +208,8 @@ CREATE OR ALTER PROCEDURE mcp.GetPositions
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @AccountKey AS accountKey FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.GetPositions', @Arguments;
     DECLARE @AccountId INT = (SELECT AccountId FROM trading.Account WHERE AccountKey = @AccountKey);
     IF @AccountId IS NULL
         THROW 50002, N'Unknown accountKey. Use find_accounts to look it up.', 1;
@@ -191,6 +229,8 @@ CREATE OR ALTER PROCEDURE mcp.GetPortfolioSummary
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @Arguments NVARCHAR(4000) = (SELECT @AccountKey AS accountKey FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC trading.RecordProcedureCall N'mcp.GetPortfolioSummary', @Arguments;
     DECLARE @AccountId INT = (SELECT AccountId FROM trading.Account WHERE AccountKey = @AccountKey);
     IF @AccountId IS NULL
         THROW 50002, N'Unknown accountKey. Use find_accounts to look it up.', 1;

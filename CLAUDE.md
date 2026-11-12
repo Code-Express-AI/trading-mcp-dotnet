@@ -34,7 +34,7 @@ Each tool checks its arguments, then calls `IAuditService.RunAsync` → `ITradin
 
 To add a tool:
 
-1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`, and a `GRANT EXECUTE ON mcp.<Name> TO mcp_reader;` line to the list at the end of the file. Return fixed columns (GUID keys, never integer IDs), enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
+1. Add a `CREATE OR ALTER PROCEDURE mcp.<Name>` to `sql/03_procedures.sql`, and a `GRANT EXECUTE ON mcp.<Name> TO mcp_reader;` line to the list at the end of the file. Start it with the two lines every read procedure has, which record the call with `trading.RecordProcedureCall`. Return fixed columns (GUID keys, never integer IDs), enforce a hard row limit and avoid dynamic SQL. For checks only the database can make (an unknown ticker or account), use `THROW 5000x, N'<message for the model>', 1;`. The server passes those messages to the model.
 2. Add the method to `ITradingRepository` and `TradingRepository`, as a single `QueryAsync` call.
 3. Add the tool to `McpServer/Tools/TradingTools.cs` with `[McpServerTool(Name = "snake_case", ReadOnly = true)]` and a clear `[Description]`. The model reads the descriptions to decide which tool to call, so they matter. Check the arguments at the top of the audit lambda with `ToolArguments.Require(...)`, with messages that tell the model what to do instead. Never let a bad argument quietly return an empty result.
 4. Add unit tests in `XTests/McpServer/`, and a call to the new procedure in `XTests/Integration/When_Trading_Repository_Is_Queried.cs`. Add its `GRANT EXECUTE` line to the expected list in `XTests/Integration/When_Mcp_Reader_Permissions_Are_Listed.cs`.
@@ -58,7 +58,7 @@ To add a tool:
 - `OriginCheckMiddleware` runs before authentication and refuses any `Origin` header not in `Mcp:AllowedOrigins` (empty by default), as the MCP specification requires. If a host sends an `Origin`, add that exact origin to the list. Never use wildcards or skip the check.
 - Never commit secrets. Local secrets live in .NET user-secrets and in the git-ignored `.env` file.
 - The server reads `.env` only in Development, and only for settings not configured elsewhere. Never let it read `.env` in Production.
-- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog`, an append-only ledger table. Never make it updatable.
+- Sensitive columns use Dynamic Data Masking, and every tool call is written to `trading.AuditLog` by the server and to `trading.ProcedureCallLog` by the procedure itself, before it returns data. Both are append-only ledger tables. Never make them updatable, and never let a read procedure skip `trading.RecordProcedureCall` or run inside a transaction.
 
 ## Docs conventions
 

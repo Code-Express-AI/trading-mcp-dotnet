@@ -113,6 +113,23 @@ CREATE TABLE trading.AuditLog (
 ) WITH (LEDGER = ON (APPEND_ONLY = ON));
 GO
 
+/* Written by the read procedures themselves, before they return any data (trading.RecordProcedureCall in
+   03_procedures.sql). AuditLog above only holds what the server chooses to write. This one doesn't depend on the
+   server: anyone who runs a procedure, even with the mcp_reader password and their own code, leaves a row.
+   DatabaseUser is who the database saw. Caller and CallerKey come from the session context the server sets,
+   so they're only as trustworthy as the server. The same ledger protection as AuditLog. */
+CREATE TABLE trading.ProcedureCallLog (
+    CallId         BIGINT IDENTITY(1,1) NOT NULL CONSTRAINT PK_ProcedureCallLog PRIMARY KEY,
+    CallKey        UNIQUEIDENTIFIER NOT NULL CONSTRAINT DF_ProcedureCallLog_Key DEFAULT (NEWID()) CONSTRAINT UQ_ProcedureCallLog_Key UNIQUE,
+    OccurredAtUtc  DATETIME2(3)   NOT NULL CONSTRAINT DF_ProcedureCallLog_Time DEFAULT (SYSUTCDATETIME()),
+    DatabaseUser   NVARCHAR(128)  NOT NULL,
+    Caller         NVARCHAR(200)  NULL,
+    CallerKey      NVARCHAR(128)  NULL,
+    ProcedureName  NVARCHAR(128)  NOT NULL,
+    Arguments      NVARCHAR(4000) NULL        -- JSON of the arguments
+) WITH (LEDGER = ON (APPEND_ONLY = ON));
+GO
+
 /* Positions are derived from trades, so nothing is stored twice.
    AvgBuyPrice is simply the average of all buy prices; real systems track tax lots or FIFO. */
 CREATE VIEW trading.v_Position AS

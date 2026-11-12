@@ -30,6 +30,13 @@ public class When_The_Mcp_Reader_Bypasses_The_Procedures
         Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.AuditLog")).Number);
     }
 
+    [IntegrationFact]
+    public async Task it_should_refuse_to_read_or_write_the_procedure_call_log()
+    {
+        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("SELECT TOP 1 * FROM trading.ProcedureCallLog")).Number);
+        Assert.Equal(PermissionDenied, (await RunAsReaderAsync("EXEC trading.RecordProcedureCall N'mcp.Made.Up', NULL")).Number);
+    }
+
     // EXECUTE is granted procedure by procedure, so one added to the mcp schema by mistake can't be run.
     [IntegrationFact]
     public async Task it_should_refuse_a_procedure_that_was_not_granted()

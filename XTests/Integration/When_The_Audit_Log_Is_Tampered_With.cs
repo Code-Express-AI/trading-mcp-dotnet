@@ -29,6 +29,14 @@ public class When_The_Audit_Log_Is_Tampered_With
         Assert.Equal(AppendOnlyLedgerTable, exception.Number);
     }
 
+    // The log the procedures write themselves has the same protection.
+    [IntegrationFact]
+    public async Task it_should_refuse_to_change_or_delete_a_procedure_call_record_even_for_sa()
+    {
+        Assert.Equal(AppendOnlyLedgerTable, (await RunAsAdminAsync("UPDATE trading.ProcedureCallLog SET Caller = N'someone-else'")).Number);
+        Assert.Equal(AppendOnlyLedgerTable, (await RunAsAdminAsync("DELETE FROM trading.ProcedureCallLog")).Number);
+    }
+
     [IntegrationFact]
     public async Task it_should_verify_against_the_latest_ledger_digest()
     {

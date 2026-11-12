@@ -93,7 +93,13 @@ Every tool call, including rejected ones, is written to `trading.AuditLog`: who 
 docker exec trading-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -C -U sa -P "<SA_PASSWORD>" -d TradingDemo -W -Q "SELECT TOP 5 OccurredAtUtc, Caller, ToolName, Success, Error FROM trading.AuditLog ORDER BY AuditId DESC"
 ```
 
-You can also query it from the VS Code SQL Server extension, as in [guide 1](01-docker-database.md#see-it-for-yourself). The rejected calls show `Invalid arguments: …` in the `Error` column. These rows can never be changed or deleted, not even by `sa`: see [how the database is locked down](01-docker-database.md#how-the-database-is-locked-down).
+The stored procedures also write their own record of each call to `trading.ProcedureCallLog`, whoever runs them:
+
+```sh
+docker exec trading-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -C -U sa -P "<SA_PASSWORD>" -d TradingDemo -W -Q "SELECT TOP 5 OccurredAtUtc, DatabaseUser, Caller, ProcedureName, Arguments FROM trading.ProcedureCallLog ORDER BY CallId DESC"
+```
+
+You can also query them from the VS Code SQL Server extension, as in [guide 1](01-docker-database.md#see-it-for-yourself). In `AuditLog`, the rejected calls show `Invalid arguments: …` in the `Error` column. Calls that the server's own argument checks rejected never reached a procedure, so they're not in `ProcedureCallLog`. These rows can never be changed or deleted, not even by `sa`: see [how the database is locked down](01-docker-database.md#how-the-database-is-locked-down).
 
 ## Configure the server with user-secrets
 

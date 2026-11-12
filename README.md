@@ -197,7 +197,7 @@ Each layer grants only what's needed, and holds even if the one above it fails.
 | What the database allows | `EXECUTE` on the stored procedures and nothing else: `DENY` on every table, fixed columns, row limits, no dynamic SQL |
 | Which rows | Row-level security: each caller sees only the clients it's mapped to, and their accounts and trades |
 | What leaks | Account numbers and emails are masked, and unexpected database errors never reach the model, only a generic message |
-| What's recorded | Every call, in an append-only ledger table whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest |
+| What's recorded | Every call, twice: by the server, and by each stored procedure before it returns any data, so a call that bypasses the server still leaves a row. Both are append-only ledger tables whose rows even `sa` can't change or delete, with a hash chain that shows tampering when checked against a saved digest |
 
 Before using this pattern with a real database, see [Before you go to production](docs/04-azure-deployment.md#before-you-go-to-production).
 
