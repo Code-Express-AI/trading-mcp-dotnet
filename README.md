@@ -108,7 +108,7 @@ Next, test the tools with MCP Inspector in [guide 2](docs/02-run-server-and-insp
 |---|-------|-------|
 | 1 | [Intro demo: Copilot answers questions from the database, but our security layers stop it deleting anything](https://youtu.be/4QRRuhrqIQU) | – |
 | 2 | [Set up SQL Server in Docker, and the database security behind it](https://youtu.be/OSnbjGC1-80) | [Guide 1](docs/01-docker-database.md) |
-| 3 | Run the MCP server, test it with MCP Inspector, then connect Copilot and Claude Code | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-copilot-or-claude-code.md) |
+| 3 | [Run the MCP server, test it with MCP Inspector, then connect Copilot and Claude Code](https://youtu.be/C5sKerNQ2ro) | [Guides 2](docs/02-run-server-and-inspector.md) and [3](docs/03-copilot-or-claude-code.md) |
 | 4 | Inside the MCP server: the code, and the security layers that lock it down | [Architecture](#architecture) and [Security design](#security-design) |
 
 Links to the other videos will be added as they're published. The guides for [deploying to Azure with Entra ID](docs/04-azure-deployment.md) and [running with a local model](docs/05-local-llm.md) are already here; videos for them may follow, depending on viewer demand.
@@ -208,11 +208,11 @@ Before using this pattern with a real database, see [Before you go to production
 
 | Component | Version | Date checked |
 |-----------|---------|--------------|
-| .NET SDK | 10.0.x | 22-Oct-2026 |
+| .NET SDK | 10.0.x | 12-Nov-2026 |
 | ModelContextProtocol.AspNetCore | 2.4.0 | 12-Nov-2026 |
-| SQL Server container | 2022-latest | 22-Oct-2026 |
-| Host / model | VS Code 1.143.1 / Copilot free tier, Auto model selection (Copilot picked gpt-6-luna) | 23-Oct-2026 |
-| Host / model | Claude Code 2.1.309 / Claude Opus 5.5 | 23-Oct-2026 |
+| SQL Server container | 2022-latest | 12-Nov-2026 |
+| Host / model | VS Code 1.143.1 / Copilot free tier, Auto model selection (Copilot picked gpt-6-luna) | 12-Nov-2026 |
+| Host / model | Claude Code 2.1.309 / Claude Opus 5.5 | 12-Nov-2026 |
 
 The MCP SDK and its authorization support are changing quickly. If something doesn't work, check the [C# SDK's issues](https://github.com/modelcontextprotocol/csharp-sdk/issues) for known problems.
 
