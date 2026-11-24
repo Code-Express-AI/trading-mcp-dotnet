@@ -4,7 +4,7 @@
 
 ## Project purpose
 
-This project uses MCP to connect AI assistants, such as GitHub Copilot or Claude, to an existing SQL Server database. The example we use is a fictional bank's stock trading system. The assistant can query the data but **can't change anything in the database**.
+This project uses MCP to connect AI assistants, such as GitHub Copilot or Claude, to an existing SQL Server database. The example I use is a fictional bank's stock trading system. The assistant can query the data but **can't change anything in the database**.
 
 ![Asking Copilot about the trading data](demo.gif)
 
@@ -16,7 +16,7 @@ MCP (Model Context Protocol) is the open standard that lets AI assistants discov
 
 ## What you'll learn
 
-We'll show you how to:
+I'll show you how to:
 
 - **Build a real MCP server, not hello world:**
   - Eight read-only tools that work together
@@ -46,7 +46,7 @@ Everything except the optional Azure deployment runs on your own machine. You'll
 
 All of it is free for personal use. SQL Server runs in Docker as the free Developer edition, and the Azure deployment fits within Azure's free tiers for App Service and Azure SQL Database.
 
-We know some of you can't run Docker, or host a database at all, on a work machine because of security restrictions. That's fine: everything here works on a personal machine at home.
+Some of you can't run Docker, or host a database at all, on a work machine because of security restrictions. That's fine: everything here works on a personal machine at home.
 
 ## Quick start
 
@@ -124,7 +124,7 @@ flowchart LR
     S -- "Dapper:<br/>EXECUTE only" --> D[("SQL Server<br/>stored procedures only<br/>DENY on tables · row-level security<br/>masking · ledger audit log")]
 ```
 
-Many MCP database examples give the model a tool that runs any SQL it writes. We don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
+Many MCP database examples give the model a tool that runs any SQL it writes. I don't: the model can only call eight fixed tools, each backed by a stored procedure. The model decides which tool to call; the host makes the call and returns the result. The security doesn't rely on the model behaving: even if it's tricked into asking for something it shouldn't, the server and the database refuse. If it makes too many calls in quick succession, a rate limit stops it.
 
 - **Server:** ASP.NET Core minimal API and Dapper
 - **Database:** SQL Server, accessed only through stored procedures
@@ -171,7 +171,7 @@ public Task<IReadOnlyList<Account>> FindAccounts(
 
 ## Step-by-step guides
 
-The detailed guides walk you through each step, explain why we built it that way, and cover testing, troubleshooting and the optional setups.
+The detailed guides walk you through each step, explain why I built it that way, and cover testing, troubleshooting and the optional setups.
 
 1. [Set up the database, and see how it's locked down](docs/01-docker-database.md)
 2. [Run the MCP server and test it with MCP Inspector](docs/02-run-server-and-inspector.md)
