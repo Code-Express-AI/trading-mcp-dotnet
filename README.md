@@ -33,6 +33,10 @@ I'll show you how to:
   - Data masking
   - A database audit log of every tool call, written by both the server and the database itself, whose rows can't be changed or deleted, even by `sa`
 
+![A tool call's path from the host through the MCP server to SQL Server, with every security check it passes](security-layers.png)
+
+"Impossible" means through this server: no tool writes, and the database lets the server run only its own stored procedures, none of which can change the trading data. Prompt injection can still mislead the model or leak what it reads.
+
 ## Try it for free
 
 Everything except the optional Azure deployment runs on your own machine. You'll need:
